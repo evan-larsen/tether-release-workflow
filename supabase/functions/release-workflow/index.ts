@@ -1,46 +1,62 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+import { isAuthorized } from './_shared/auth.ts';
+import { toErrorResponse } from './_shared/errors.ts';
+import { parseStoreStatusRequest } from './_shared/request.ts';
+import { getStoreBuildStatus } from './_shared/store-status.ts';
+import type { RuntimeDependencies } from './_shared/types.ts';
 
-// Setup type definitions for built-in Supabase Runtime APIs
-import '@supabase/functions-js/edge-runtime.d.ts';
-import { withSupabase } from '@supabase/server';
+function getRuntimeDependencies(): RuntimeDependencies {
+  return {
+    fetch: globalThis.fetch,
+    secrets: {
+      googleServiceAccountJson: Deno.env.get(
+        'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
+      ),
+      applePrivateKey: Deno.env.get('APP_STORE_CONNECT_PRIVATE_KEY'),
+      appleKeyId: Deno.env.get('APP_STORE_CONNECT_KEY_ID'),
+      appleIssuerId: Deno.env.get('APP_STORE_CONNECT_ISSUER_ID'),
+      googlePackageName: Deno.env.get('GOOGLE_PLAY_PACKAGE_NAME'),
+      iosBundleId: Deno.env.get('IOS_BUNDLE_ID'),
+      workflowToken: Deno.env.get('RELEASE_WORKFLOW_TOKEN'),
+    },
+  };
+}
 
-console.log('Hello from Functions!');
-
-// This endpoint uses 'publishable' | 'secret' access, apiKey is required.
-// Use publishable for Client-facing, key-validated endpoints
-// Use secret for Server-to-server, internal calls
-export default {
-  fetch: withSupabase({ auth: ['publishable', 'secret'] }, async (req, ctx) => {
-    // Called by another service with a secret key
-    // ctx.supabaseAdmin bypasses RLS — use for privileged operations
-    /*
-    if (ctx.authMode === "secret") {
-      const { user_id } = await req.json();
-      const { data } = await ctx.supabaseAdmin.auth.admin.getUserById(user_id);
-
-      return Response.json({
-        email: data?.user?.email,
-      });
+export function createReleaseWorkflowHandler(
+  dependencies: RuntimeDependencies = getRuntimeDependencies(),
+) {
+  return async function handleReleaseWorkflowRequest(
+    req: Request,
+  ): Promise<Response> {
+    if (req.method !== 'POST') {
+      return Response.json(
+        { error: { code: 'method_not_allowed' } },
+        {
+          status: 405,
+          headers: { Allow: 'POST' },
+        },
+      );
     }
-    */
 
-    const { name } = await req.json();
+    if (
+      !isAuthorized(
+        req.headers.get('x-release-workflow-token'),
+        dependencies.secrets.workflowToken,
+      )
+    ) {
+      return Response.json(
+        { error: { code: 'unauthorized' } },
+        { status: 401 },
+      );
+    }
 
-    return Response.json({
-      message: `Hello ${name}!`,
-    });
-  }),
-};
+    try {
+      const input = await parseStoreStatusRequest(req);
+      const result = await getStoreBuildStatus(input, dependencies);
+      return Response.json(result.body, { status: result.httpStatus });
+    } catch (error) {
+      return toErrorResponse(error);
+    }
+  };
+}
 
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/release-workflow' \
-    --header 'apiKey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' \
-    --data '{"name":"Functions"}'
-
-*/
+if (import.meta.main) Deno.serve(createReleaseWorkflowHandler());
