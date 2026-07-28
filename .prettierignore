@@ -1,0 +1,6 @@
+node_modules
+.codex
+.cache
+supabase/.temp
+*.log
+package-lock.json
