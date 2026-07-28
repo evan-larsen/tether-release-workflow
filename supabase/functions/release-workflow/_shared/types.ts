@@ -18,6 +18,40 @@ export interface StoreStatusRequest {
   buildNumber: string;
 }
 
+export interface ReleaseState {
+  stateVersion: 1;
+  currentNative: string | null;
+  releases: unknown[];
+  [key: string]: unknown;
+}
+
+export interface GetReleaseStateRequest {
+  action: 'get_release_state';
+}
+
+export interface UpdateReleaseStateRequest {
+  action: 'update_release_state';
+  expectedRevision: number;
+  state: ReleaseState;
+}
+
+export type ReleaseWorkflowRequest =
+  StoreStatusRequest | GetReleaseStateRequest | UpdateReleaseStateRequest;
+
+export interface ReleaseStateRecord {
+  revision: number;
+  state: ReleaseState;
+  updatedAt: string;
+}
+
+export interface ReleaseStateRepository {
+  getState(): Promise<ReleaseStateRecord>;
+  compareAndSwap(
+    expectedRevision: number,
+    state: ReleaseState,
+  ): Promise<ReleaseStateRecord | null>;
+}
+
 export interface StoreStatusResponse {
   platform: Platform;
   appVersion: string;
@@ -35,6 +69,8 @@ export interface ReleaseWorkflowSecrets {
   googlePackageName?: string;
   iosBundleId?: string;
   workflowToken?: string;
+  supabaseUrl?: string;
+  supabaseServiceRoleKey?: string;
 }
 
 export type FetchLike = typeof fetch;
@@ -42,6 +78,7 @@ export type FetchLike = typeof fetch;
 export interface RuntimeDependencies {
   fetch: FetchLike;
   secrets: ReleaseWorkflowSecrets;
+  releaseState: ReleaseStateRepository;
 }
 
 export interface StoreStatusResult {

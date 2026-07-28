@@ -5,6 +5,11 @@ import type { RuntimeDependencies } from '../_shared/types.ts';
 const dependencies: RuntimeDependencies = {
   fetch: () => Promise.reject(new Error('Provider must not be called.')),
   secrets: { workflowToken: 'test-token' },
+  releaseState: {
+    getState: () => Promise.reject(new Error('State must not be called.')),
+    compareAndSwap: () =>
+      Promise.reject(new Error('State must not be called.')),
+  },
 };
 
 Deno.test('rejects non-POST requests before authentication', async () => {

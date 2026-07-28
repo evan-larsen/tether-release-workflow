@@ -1,10 +1,9 @@
 # Tether release workflow
 
 This repository owns the `release-workflow` Supabase Edge Function for the
-Tether release process. Its first slice is deliberately small: it is a
-server-to-server, read-only checker for one exact Apple or Google store build.
-It does not create release state, run EAS, perform RevoPush actions, create Git
-tags, or mutate either store.
+Tether release process. It provides a server-to-server store-status checker and
+a small revision-protected remote release-state boundary. It does not run EAS,
+perform RevoPush actions, create Git tags, or mutate either store.
 
 ## Security model
 
@@ -33,6 +32,36 @@ RELEASE_WORKFLOW_TOKEN
 
 No real secrets belong in Git, `.env.example`, source files, logs, or test
 fixtures. For local use, create an ignored `.env.local` containing those values.
+
+## Release-state migration
+
+The committed migration creates one table only:
+
+```text
+public.release_workflow_state
+```
+
+It contains one seeded `tether` row at revision `0` with this state:
+
+```json
+{
+  "stateVersion": 1,
+  "currentNative": null,
+  "releases": []
+}
+```
+
+The table has RLS enabled, has no `anon` or `authenticated` policies, and those
+roles have no table or RPC privileges. The Edge Function reaches it only with
+the Supabase server-side service-role key. Apply migrations only after checks
+pass and after confirming the linked project:
+
+```sh
+npm run check
+npm run supabase:status
+supabase db push
+npm run supabase:deploy
+```
 
 ## Request and response
 
@@ -63,6 +92,58 @@ The response has this normalized shape:
 Statuses are `live`, `approved_not_live`, `pending`, `rejected`, `not_found`,
 or `unknown`. Provider, network, and credential failures return HTTP `502` with
 the normalized `unknown` status; no provider failure details are exposed.
+
+## Release-state actions
+
+`get_release_state` returns the one current state row:
+
+```json
+{
+  "action": "get_release_state"
+}
+```
+
+```json
+{
+  "revision": 0,
+  "state": {
+    "stateVersion": 1,
+    "currentNative": null,
+    "releases": []
+  },
+  "updatedAt": "2026-07-28T00:00:00.000Z"
+}
+```
+
+`update_release_state` validates the minimal state shape before performing an
+atomic database compare-and-swap:
+
+```json
+{
+  "action": "update_release_state",
+  "expectedRevision": 0,
+  "state": {
+    "stateVersion": 1,
+    "currentNative": null,
+    "releases": []
+  }
+}
+```
+
+On success, the database increments `revision` and sets `updatedAt` server-side.
+If another writer changed the row first, the function returns HTTP `409`:
+
+```json
+{
+  "error": {
+    "code": "revision_conflict"
+  }
+}
+```
+
+Release state is not connected to EAS, RevoPush, Git tags, release commands, or
+GitHub Actions yet. The initial state intentionally does not reconstruct or
+assume current real RevoPush deployment information.
 
 ## Local development
 

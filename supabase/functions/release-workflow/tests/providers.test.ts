@@ -49,6 +49,11 @@ const testDependencies: RuntimeDependencies = {
     appleKeyId: 'key',
     appleIssuerId: 'issuer',
   },
+  releaseState: {
+    getState: () => Promise.reject(new Error('State must not be called.')),
+    compareAndSwap: () =>
+      Promise.reject(new Error('State must not be called.')),
+  },
 };
 
 function toPem(bytes: ArrayBuffer): string {

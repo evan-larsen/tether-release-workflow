@@ -12,11 +12,32 @@ export class ProviderError extends Error {
   }
 }
 
+export class RevisionConflictError extends Error {
+  constructor() {
+    super('Release state revision conflict.');
+    this.name = 'RevisionConflictError';
+  }
+}
+
+export class ReleaseStateError extends Error {
+  constructor() {
+    super('Release state request failed.');
+    this.name = 'ReleaseStateError';
+  }
+}
+
 export function toErrorResponse(error: unknown): Response {
   if (error instanceof RequestError) {
     return Response.json(
       { error: { code: 'invalid_request' } },
       { status: 400 },
+    );
+  }
+
+  if (error instanceof RevisionConflictError) {
+    return Response.json(
+      { error: { code: 'revision_conflict' } },
+      { status: 409 },
     );
   }
 

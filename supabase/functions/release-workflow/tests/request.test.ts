@@ -1,26 +1,23 @@
 import { assertEquals, assertThrows } from '@std/assert';
 import { isAuthorized } from '../_shared/auth.ts';
 import { RequestError } from '../_shared/errors.ts';
-import { parseStoreStatusPayload } from '../_shared/request.ts';
+import { parseReleaseWorkflowPayload } from '../_shared/request.ts';
 
 const validRequest = {
   action: 'get_store_build_status',
   platform: 'ios',
   appVersion: '1.8.0',
   buildNumber: '43',
-};
+} as const;
 
 Deno.test('accepts the exact iOS request contract', () => {
-  assertEquals(parseStoreStatusPayload(validRequest), validRequest);
+  assertEquals(parseReleaseWorkflowPayload(validRequest), validRequest);
 });
 
 Deno.test('accepts an Android numeric versionCode', () => {
   assertEquals(
-    parseStoreStatusPayload({ ...validRequest, platform: 'android' }),
-    {
-      ...validRequest,
-      platform: 'android',
-    },
+    parseReleaseWorkflowPayload({ ...validRequest, platform: 'android' }),
+    { ...validRequest, platform: 'android' },
   );
 });
 
@@ -28,16 +25,16 @@ Deno.test(
   'rejects an unknown action, extra field, and invalid build number',
   () => {
     assertThrows(
-      () => parseStoreStatusPayload({ ...validRequest, action: 'other' }),
+      () => parseReleaseWorkflowPayload({ ...validRequest, action: 'other' }),
       RequestError,
     );
     assertThrows(
-      () => parseStoreStatusPayload({ ...validRequest, extra: true }),
+      () => parseReleaseWorkflowPayload({ ...validRequest, extra: true }),
       RequestError,
     );
     assertThrows(
       () =>
-        parseStoreStatusPayload({
+        parseReleaseWorkflowPayload({
           ...validRequest,
           platform: 'android',
           buildNumber: '4.3',
