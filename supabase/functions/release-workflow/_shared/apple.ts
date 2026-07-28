@@ -82,7 +82,8 @@ async function createAppleToken(config: AppleConfig): Promise<string> {
 }
 
 function toAppleStatus(state: string): StoreStatus {
-  if (state === 'READY_FOR_DISTRIBUTION') return 'live';
+  if (['READY_FOR_DISTRIBUTION', 'READY_FOR_SALE'].includes(state))
+    return 'live';
   if (
     ['PENDING_DEVELOPER_RELEASE', 'PENDING_APPLE_RELEASE', 'ACCEPTED'].includes(
       state,

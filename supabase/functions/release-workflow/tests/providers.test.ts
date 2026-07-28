@@ -7,6 +7,7 @@ import type { RuntimeDependencies, StoreStatus } from '../_shared/types.ts';
 
 const appleStates: Array<[string, StoreStatus]> = [
   ['READY_FOR_DISTRIBUTION', 'live'],
+  ['READY_FOR_SALE', 'live'],
   ['PENDING_DEVELOPER_RELEASE', 'approved_not_live'],
   ['PENDING_APPLE_RELEASE', 'approved_not_live'],
   ['ACCEPTED', 'approved_not_live'],
