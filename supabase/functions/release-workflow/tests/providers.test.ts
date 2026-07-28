@@ -103,12 +103,8 @@ Deno.test(
               {
                 id: 'build-id',
                 attributes: { version: '43' },
-                relationships: {
-                  preReleaseVersion: { data: { id: 'pre-id' } },
-                },
               },
             ],
-            included: [{ id: 'pre-id', attributes: { version: '1.8.0' } }],
           }),
         );
       }
@@ -140,6 +136,10 @@ Deno.test(
       providerState: 'READY_FOR_DISTRIBUTION',
     });
     assertEquals(calls.length, 3);
+    assertEquals(
+      calls[1].includes('filter[preReleaseVersion.version]=1.8.0'),
+      true,
+    );
   },
 );
 

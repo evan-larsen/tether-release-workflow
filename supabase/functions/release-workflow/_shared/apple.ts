@@ -13,14 +13,10 @@ interface AppleConfig {
 interface AppleResource {
   id: string;
   attributes?: Record<string, unknown>;
-  relationships?: {
-    preReleaseVersion?: { data?: { id?: string } };
-  };
 }
 
 interface AppleCollection {
   data?: AppleResource[];
-  included?: AppleResource[];
 }
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -137,20 +133,12 @@ export async function getAppleStoreStatus(
 
     const builds = await getAppleJson<AppleCollection>(
       fetcher,
-      `/builds?filter[app]=${encodeURIComponent(appId)}&filter[version]=${encodeURIComponent(input.buildNumber)}&include=preReleaseVersion&limit=200`,
+      `/builds?filter[app]=${encodeURIComponent(appId)}&filter[version]=${encodeURIComponent(input.buildNumber)}&filter[preReleaseVersion.version]=${encodeURIComponent(input.appVersion)}&limit=200`,
       token,
     );
-    const build = builds.data?.find((candidate) => {
-      const preReleaseVersionId =
-        candidate.relationships?.preReleaseVersion?.data?.id;
-      const preReleaseVersion = builds.included?.find(
-        (item) => item.id === preReleaseVersionId,
-      );
-      return (
-        candidate.attributes?.version === input.buildNumber &&
-        preReleaseVersion?.attributes?.version === input.appVersion
-      );
-    });
+    const build = builds.data?.find(
+      (candidate) => candidate.attributes?.version === input.buildNumber,
+    );
     if (!build) return { status: 'not_found', providerState: null };
 
     const version = await getAppleJson<{ data?: AppleResource }>(
