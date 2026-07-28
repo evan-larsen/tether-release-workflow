@@ -53,7 +53,9 @@ export async function getStoreBuildStatus(
     return {
       httpStatus: 200,
       body: {
-        ...input,
+        platform: input.platform,
+        appVersion: input.appVersion,
+        buildNumber: input.buildNumber,
         ...providerResult,
         checkedAt: new Date().toISOString(),
       },

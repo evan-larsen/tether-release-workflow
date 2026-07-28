@@ -80,6 +80,7 @@ Deno.test('normalizes provider failures without exposing details', async () => {
   assertEquals(result.httpStatus, 502);
   assertEquals(result.body.status, 'unknown');
   assertEquals(result.body.providerState, null);
+  assertEquals('action' in result.body, false);
 });
 
 Deno.test(
