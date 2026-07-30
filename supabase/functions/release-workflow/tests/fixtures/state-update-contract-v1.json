@@ -1,0 +1,114 @@
+{
+  "fixtureVersion": 1,
+  "corpusId": "tether-release-state-update-v2-2026-07-30",
+  "cases": [
+    {
+      "id": "illegal-current-native-jump",
+      "previous": "empty-v2",
+      "next": "current-native-without-production",
+      "expected": false
+    },
+    {
+      "id": "fabricated-completed-native-candidate",
+      "previous": "established-native-1",
+      "next": "appended-complete-native-2",
+      "expected": false
+    },
+    {
+      "id": "new-native-missing-floor-preview",
+      "previous": "established-native-1",
+      "next": "native-2-without-preview",
+      "expected": false
+    },
+    {
+      "id": "same-generation-with-floor-preview",
+      "previous": "established-native-1",
+      "next": "native-1-with-preview",
+      "expected": false
+    },
+    {
+      "id": "wrong-production-profile-version",
+      "previous": "same-generation-release",
+      "next": "wrong-production-build",
+      "expected": false
+    },
+    {
+      "id": "preview-base-linked-to-failed-build",
+      "previous": "preview-building",
+      "next": "failed-preview-base",
+      "expected": false
+    },
+    {
+      "id": "approved-preview-later-failed-attempt",
+      "previous": "approved-preview",
+      "next": "approved-preview-with-later-failure",
+      "expected": false
+    },
+    {
+      "id": "invalid-staging-lane-ownership",
+      "previous": "preview-required",
+      "next": "preview-build-with-wrong-lane",
+      "expected": false
+    },
+    {
+      "id": "approved-non-public-preview-supersession",
+      "previous": "approved-preview",
+      "next": "superseded-approved-preview-replacement",
+      "expected": true
+    },
+    {
+      "id": "valid-squash-production-commit",
+      "previous": "approved-preview",
+      "next": "same-tree-production-commit",
+      "expected": true
+    },
+    {
+      "id": "exact-empty-v1-migration",
+      "previous": "exact-empty-v1",
+      "next": "empty-v2",
+      "expected": true
+    },
+    {
+      "id": "nonempty-v1-migration",
+      "previous": "nonempty-v1",
+      "next": "empty-v2",
+      "expected": false
+    },
+    {
+      "id": "duplicate-same-tree-preparation-reuse-no-write",
+      "previous": "prepared-release",
+      "next": "same-prepared-release",
+      "expected": false
+    },
+    {
+      "id": "changed-tree-preparation-replacement",
+      "previous": "prepared-release",
+      "next": "superseded-prepared-release-and-replacement",
+      "expected": true
+    },
+    {
+      "id": "public-progress-preparation-replacement",
+      "previous": "public-release",
+      "next": "superseded-public-release-and-replacement",
+      "expected": false
+    },
+    {
+      "id": "fabricated-preparation-record",
+      "previous": "established-native-1",
+      "next": "prepared-release-with-production-work",
+      "expected": false
+    },
+    {
+      "id": "duplicate-release-id-preparation",
+      "previous": "prepared-release",
+      "next": "second-preparation-with-same-release-id",
+      "expected": false
+    },
+    {
+      "id": "preparation-current-native-movement",
+      "previous": "established-native-1",
+      "next": "prepared-release-and-current-native-jump",
+      "expected": false
+    }
+  ]
+}

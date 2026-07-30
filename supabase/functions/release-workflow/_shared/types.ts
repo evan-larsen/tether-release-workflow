@@ -18,11 +18,101 @@ export interface StoreStatusRequest {
   buildNumber: string;
 }
 
+export type BuildStatus = 'requested' | 'succeeded' | 'failed';
+export type ReleaseStatus = 'in_progress' | 'superseded' | 'complete';
+
+export interface RevoPushRecord {
+  label: string;
+  packageHash: string;
+}
+
+export interface PreviewBuildAttempt {
+  easBuildId: string;
+  appVersion: string;
+  buildNumber: string;
+  profile: string;
+  status: BuildStatus;
+}
+
+export interface PreviewPlatform {
+  attempts: PreviewBuildAttempt[];
+  stagingBase: (RevoPushRecord & { easBuildId: string }) | null;
+  stagingOta: (RevoPushRecord & { baseEasBuildId: string }) | null;
+}
+
+export interface PreviewRecord {
+  status: 'required' | 'building' | 'smoke_pending' | 'approved';
+  platforms: Record<Platform, PreviewPlatform>;
+  smokeApprovedAt: string | null;
+}
+
+export interface ReleasePreparation {
+  preparationId: string;
+  treeHash: string;
+  preparedCommit: string;
+  marketingVersion: string;
+  nativeGeneration: string;
+  preparedAt: string;
+  status: 'prepared';
+}
+
+export interface ProductionAttempt extends PreviewBuildAttempt {
+  submissions: Array<{
+    id: string;
+    status: 'pending' | 'submitted' | 'failed' | 'unknown';
+  }>;
+  storeStatus: {
+    status: StoreStatus;
+    providerState: string | null;
+    checkedAt: string;
+  } | null;
+  base: {
+    status: 'pending' | 'eligible' | 'registered';
+    staging: RevoPushRecord | null;
+    production: RevoPushRecord | null;
+  } | null;
+}
+
+export interface ReleasePlatform {
+  attempts: ProductionAttempt[];
+  ota: {
+    staging: (RevoPushRecord & { status: 'published' | 'approved' }) | null;
+    production: RevoPushRecord | null;
+  } | null;
+}
+
+interface ReleaseRecordBase {
+  id: string;
+  version: string;
+  native: string;
+  createdAt: string;
+  status: ReleaseStatus;
+  platforms: Record<Platform, ReleasePlatform>;
+}
+
+export interface StoreReleaseRecord extends ReleaseRecordBase {
+  preparation: ReleasePreparation;
+  productionCommit: string | null;
+  nativeFloorVersion: string | null;
+  preview: PreviewRecord | null;
+  releaseType: 'store';
+}
+
+export interface OtaReleaseRecord extends ReleaseRecordBase {
+  gitCommit: string;
+  releaseType: 'ota';
+}
+
+export type ReleaseRecord = StoreReleaseRecord | OtaReleaseRecord;
+
 export interface ReleaseState {
-  stateVersion: 1;
+  stateVersion: 2;
   currentNative: string | null;
-  releases: unknown[];
-  [key: string]: unknown;
+  stagingLane: {
+    activeNative: string | null;
+    resetTargetNative: string | null;
+  };
+  releases: ReleaseRecord[];
 }
 
 export interface GetReleaseStateRequest {
@@ -40,7 +130,7 @@ export type ReleaseWorkflowRequest =
 
 export interface ReleaseStateRecord {
   revision: number;
-  state: ReleaseState;
+  state: unknown;
   updatedAt: string;
 }
 

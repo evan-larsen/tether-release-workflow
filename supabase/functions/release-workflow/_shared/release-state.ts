@@ -1,4 +1,9 @@
-import { ReleaseStateError, RevisionConflictError } from './errors.ts';
+import {
+  ReleaseStateError,
+  RequestError,
+  RevisionConflictError,
+} from './errors.ts';
+import { validateReleaseStateUpdate } from './state-update-validation.ts';
 import type {
   ReleaseState,
   ReleaseStateRecord,
@@ -94,6 +99,10 @@ export async function updateReleaseState(
   expectedRevision: number,
   state: ReleaseState,
 ): Promise<ReleaseStateRecord> {
+  const previous = await repository.getState();
+  if (previous.revision !== expectedRevision) throw new RevisionConflictError();
+  if (!validateReleaseStateUpdate(previous.state, state))
+    throw new RequestError('Release state update is invalid.');
   const record = await repository.compareAndSwap(expectedRevision, state);
   if (!record) throw new RevisionConflictError();
   return record;

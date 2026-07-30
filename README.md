@@ -41,7 +41,8 @@ The committed migration creates one table only:
 public.release_workflow_state
 ```
 
-It contains one seeded `tether` row at revision `0` with this state:
+It contains one seeded `tether` row at revision `0` with the exact known empty
+v1 state:
 
 ```json
 {
@@ -51,10 +52,24 @@ It contains one seeded `tether` row at revision `0` with this state:
 }
 ```
 
+The seed remains v1 so the already-created empty remote row can be migrated
+explicitly. The app repository provides a separately invoked command:
+
+```sh
+npm run release-state:migrate-v2 -- --dry-run
+npm run release-state:migrate-v2 -- --confirm-empty-v1-to-v2
+```
+
+Only the exact state shown above is accepted by its pure migration helper.
+Non-empty or unexpected v1 state fails closed. Migration is never part of a
+normal release command, and no broad automatic migration exists.
+
 The table has RLS enabled, has no `anon` or `authenticated` policies, and those
 roles have no table or RPC privileges. The Edge Function reaches it only with
-the Supabase server-side service-role key. Apply migrations only after checks
-pass and after confirming the linked project:
+the Supabase server-side service-role key. A follow-up migration removes the
+unused database `schema_version` column and its RPC result field, leaving JSON
+`state.stateVersion` as the single schema authority. Apply migrations only
+after checks pass and after confirming the linked project:
 
 ```sh
 npm run check
@@ -107,24 +122,33 @@ the normalized `unknown` status; no provider failure details are exposed.
 {
   "revision": 0,
   "state": {
-    "stateVersion": 1,
+    "stateVersion": 2,
     "currentNative": null,
+    "stagingLane": {
+      "activeNative": null,
+      "resetTargetNative": null
+    },
     "releases": []
   },
   "updatedAt": "2026-07-28T00:00:00.000Z"
 }
 ```
 
-`update_release_state` validates the minimal state shape before performing an
-atomic database compare-and-swap:
+`update_release_state` validates both the complete v2 state shape and its legal
+transition from the previously saved state before performing an atomic database
+compare-and-swap:
 
 ```json
 {
   "action": "update_release_state",
   "expectedRevision": 0,
   "state": {
-    "stateVersion": 1,
+    "stateVersion": 2,
     "currentNative": null,
+    "stagingLane": {
+      "activeNative": null,
+      "resetTargetNative": null
+    },
     "releases": []
   }
 }
@@ -141,9 +165,28 @@ If another writer changed the row first, the function returns HTTP `409`:
 }
 ```
 
-Release state is not connected to EAS, RevoPush, Git tags, release commands, or
-GitHub Actions yet. The initial state intentionally does not reconstruct or
-assume current real RevoPush deployment information.
+The previous-state check accepts only a narrow lifecycle delta (or the
+documented atomic candidate supersession). It rejects direct
+`currentNative` changes, fabricated completion, skipped artifact steps, and
+unrelated multi-record replacements even when the proposed JSON is
+structurally valid. `currentNative` can advance only on the exact final
+Production-base registration that completes an approved, source-attached,
+next-generation candidate.
+
+Successful `release:prepare` registration is also a narrow transition. It may
+append one empty `in_progress` store release with exact non-secret preparation
+provenance and `productionCommit: null`, or atomically supersede one unfinished,
+non-public record with the same marketing version/native generation and a
+different tree. Exact-tree retries reuse the existing stable release ID without
+a write. Preparation cannot add build/base/public facts, duplicate a release
+ID, or move `currentNative`.
+
+The v2 state can represent exact source-tree provenance, native-floor semantics,
+Preview build/base/OTA/smoke facts, and durable shared-Staging reset intent. It
+never stores deployment keys, credentials, tokens, URLs, or mutable key copies.
+This phase provides validation and pure app-side transitions only: it does not
+invoke EAS or RevoPush, reset Staging, contact a store, create a release row,
+deploy this function, or enforce the Preview gate in `production:release`.
 
 ## Local development
 

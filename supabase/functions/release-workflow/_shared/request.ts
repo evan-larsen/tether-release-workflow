@@ -1,4 +1,5 @@
 import { RequestError } from './errors.ts';
+import { isReleaseState } from './state-validation.ts';
 import type {
   GetReleaseStateRequest,
   Platform,
@@ -66,17 +67,9 @@ function parseStoreStatusPayload(
 }
 
 function parseReleaseState(value: unknown): ReleaseState {
-  if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new RequestError('Release state must be an object.');
-  const state = value as Record<string, unknown>;
-  if (
-    state.stateVersion !== 1 ||
-    (typeof state.currentNative !== 'string' && state.currentNative !== null) ||
-    !Array.isArray(state.releases)
-  ) {
+  if (!isReleaseState(value))
     throw new RequestError('Release state is invalid.');
-  }
-  return state as ReleaseState;
+  return value;
 }
 
 function parseGetReleaseStatePayload(

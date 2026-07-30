@@ -8,8 +8,12 @@ import type {
 } from '../_shared/types.ts';
 
 const initialState: ReleaseState = {
-  stateVersion: 1,
+  stateVersion: 2,
   currentNative: null,
+  stagingLane: {
+    activeNative: null,
+    resetTargetNative: null,
+  },
   releases: [],
 };
 
@@ -71,7 +75,13 @@ Deno.test('gets the seeded release state', async () => {
 
 Deno.test('updates state and increments the revision', async () => {
   const dependencies = createDependencies();
-  const nextState = { ...initialState, currentNative: 'native-2' };
+  const nextState = {
+    ...initialState,
+    stagingLane: {
+      activeNative: null,
+      resetTargetNative: 'native-1',
+    },
+  };
   const response = await callAction(dependencies, {
     action: 'update_release_state',
     expectedRevision: 0,
@@ -87,10 +97,17 @@ Deno.test('updates state and increments the revision', async () => {
 
 Deno.test('returns 409 for a stale expected revision', async () => {
   const dependencies = createDependencies();
+  const nextState = {
+    ...initialState,
+    stagingLane: {
+      activeNative: null,
+      resetTargetNative: 'native-1',
+    },
+  };
   await callAction(dependencies, {
     action: 'update_release_state',
     expectedRevision: 0,
-    state: initialState,
+    state: nextState,
   });
   const response = await callAction(dependencies, {
     action: 'update_release_state',
@@ -107,8 +124,50 @@ Deno.test(
     const response = await callAction(createDependencies(), {
       action: 'update_release_state',
       expectedRevision: 0,
-      state: { stateVersion: 2, currentNative: null, releases: [] },
+      state: { stateVersion: 1, currentNative: null, releases: [] },
     });
     assertEquals(response.status, 400);
+  },
+);
+
+Deno.test('rejects malformed v2 without exposing supplied values', async () => {
+  const response = await callAction(createDependencies(), {
+    action: 'update_release_state',
+    expectedRevision: 0,
+    state: {
+      ...initialState,
+      stagingLane: {
+        activeNative: 'native-2',
+        resetTargetNative: 'native-2',
+      },
+    },
+  });
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), {
+    error: { code: 'invalid_request' },
+  });
+});
+
+Deno.test(
+  'rejects a structurally valid direct current-native jump',
+  async () => {
+    const dependencies = createDependencies();
+    const response = await callAction(dependencies, {
+      action: 'update_release_state',
+      expectedRevision: 0,
+      state: {
+        ...initialState,
+        currentNative: 'native-1',
+      },
+    });
+
+    assertEquals(response.status, 400);
+    assertEquals(await response.json(), {
+      error: { code: 'invalid_request' },
+    });
+    const unchanged = await callAction(dependencies, {
+      action: 'get_release_state',
+    });
+    assertEquals((await unchanged.json()).revision, 0);
   },
 );
