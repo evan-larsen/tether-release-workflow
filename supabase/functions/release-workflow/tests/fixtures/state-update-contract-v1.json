@@ -163,6 +163,18 @@
       "previous": "reset-pending-preview-candidate",
       "next": "claimed-preview-candidate",
       "expected": false
+    },
+    {
+      "id": "legacy-live-baseline-adoption",
+      "previous": "pre-baseline-workflow-state",
+      "next": "adopted-native-1-baseline",
+      "expected": true
+    },
+    {
+      "id": "legacy-live-baseline-forged-base",
+      "previous": "pre-baseline-workflow-state",
+      "next": "adopted-baseline-with-fabricated-base",
+      "expected": false
     }
   ]
 }

@@ -19,7 +19,8 @@ export interface StoreStatusRequest {
 }
 
 export type BuildStatus = 'requested' | 'succeeded' | 'failed';
-export type ReleaseStatus = 'in_progress' | 'superseded' | 'complete';
+export type ReleaseStatus =
+  'in_progress' | 'superseded' | 'complete' | 'adopted';
 
 export interface RevoPushRecord {
   label: string;
@@ -114,7 +115,36 @@ export interface OtaReleaseRecord extends ReleaseRecordBase {
   releaseType: 'ota';
 }
 
-export type ReleaseRecord = StoreReleaseRecord | OtaReleaseRecord;
+export interface AdoptedBaselineArtifact {
+  easBuildId: string;
+  appVersion: string;
+  buildNumber: string;
+  profile: 'production';
+  status: 'succeeded';
+  sourceCommit: string;
+  sourceTreeHash: string;
+  storeStatus: {
+    status: 'live';
+    providerState: string | null;
+    checkedAt: string;
+  };
+  base: { status: 'eligible'; staging: null; production: null };
+}
+
+export interface AdoptedBaselineRecord {
+  id: string;
+  version: string;
+  native: 'native-1';
+  nativeFloorVersion: string;
+  source: { commit: string; treeHash: string };
+  createdAt: string;
+  releaseType: 'adopted_baseline';
+  status: 'adopted';
+  artifacts: Record<Platform, AdoptedBaselineArtifact>;
+}
+
+export type ReleaseRecord =
+  StoreReleaseRecord | OtaReleaseRecord | AdoptedBaselineRecord;
 
 export type StagingResetStatus = 'pending' | 'cleared_and_verified';
 

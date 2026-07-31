@@ -8,6 +8,7 @@ import {
   isTimestamp,
 } from './state-validation-primitives.ts';
 import { hasValidPlatformPreparations } from './platform-preparation-validation.ts';
+import { isAdoptedBaseline } from './legacy-baseline-validation.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
 function isOta(value: unknown): boolean {
@@ -98,6 +99,8 @@ function hasCompleteProduction(value: Record<string, unknown>): boolean {
 export function isRelease(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const release = value as Record<string, unknown>;
+  if (release.releaseType === 'adopted_baseline')
+    return isAdoptedBaseline(release);
   if (
     !isNonEmptyString(release.id) ||
     !isStrictVersion(release.version) ||
@@ -107,6 +110,13 @@ export function isRelease(value: unknown): boolean {
       String(release.status),
     ) ||
     !hasExactKeys(release.platforms, PLATFORMS)
+  )
+    return false;
+  const hasSupersededReason = Object.hasOwn(release, 'supersededReason');
+  if (
+    hasSupersededReason &&
+    (release.status !== 'superseded' ||
+      release.supersededReason !== 'pre_baseline_adoption')
   )
     return false;
   const platforms = release.platforms as Record<string, unknown>;
@@ -136,6 +146,7 @@ export function isRelease(value: unknown): boolean {
         'releaseType',
         'status',
         'platforms',
+        ...(hasSupersededReason ? ['supersededReason'] : []),
         ...(Object.hasOwn(release, 'platformPreparations')
           ? ['platformPreparations']
           : []),
@@ -176,6 +187,7 @@ export function isRelease(value: unknown): boolean {
       'releaseType',
       'status',
       'platforms',
+      ...(hasSupersededReason ? ['supersededReason'] : []),
     ]) ||
     !isNonEmptyString(release.gitCommit)
   )

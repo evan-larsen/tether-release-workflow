@@ -1,7 +1,7 @@
 import { assertEquals } from '@std/assert';
 import { validateReleaseStateUpdate } from '../_shared/state-update-validation.ts';
 import { isReleaseState } from '../_shared/state-validation.ts';
-import type { ReleaseState } from '../_shared/types.ts';
+import type { ReleaseState, StoreReleaseRecord } from '../_shared/types.ts';
 
 const time = '2026-07-30T12:00:00.000Z';
 const sha = (character: string) => character.repeat(40);
@@ -102,7 +102,9 @@ Deno.test(
 
     const corrected = correction(previous);
     const wrongBuild = structuredClone(corrected) as ReleaseState;
-    wrongBuild.releases[0].platforms.android.attempts.push({
+    (
+      wrongBuild.releases[0] as StoreReleaseRecord
+    ).platforms.android.attempts.push({
       easBuildId: 'android-wrong',
       appVersion: '1.8.0',
       buildNumber: '2',
@@ -117,7 +119,9 @@ Deno.test(
     assertEquals(validateReleaseStateUpdate(corrected, wrongBuild), false);
 
     const publicWrite = structuredClone(previous) as ReleaseState;
-    publicWrite.releases[0].platforms.ios.attempts[0].storeStatus!.checkedAt =
+    (
+      publicWrite.releases[0] as StoreReleaseRecord
+    ).platforms.ios.attempts[0].storeStatus!.checkedAt =
       '2026-07-31T12:00:00.000Z';
     assertEquals(validateReleaseStateUpdate(previous, publicWrite), false);
   },
@@ -125,7 +129,7 @@ Deno.test(
 
 Deno.test('rejects corrections with zero or two public platforms', () => {
   const nonePublic = structuredClone(partialPublicState()) as ReleaseState;
-  nonePublic.releases[0].platforms.ios.attempts = [];
+  (nonePublic.releases[0] as StoreReleaseRecord).platforms.ios.attempts = [];
   (
     nonePublic.releases[0] as unknown as Record<string, unknown>
   ).productionCommit = null;
@@ -135,7 +139,9 @@ Deno.test('rejects corrections with zero or two public platforms', () => {
   );
 
   const bothPublic = structuredClone(partialPublicState()) as ReleaseState;
-  bothPublic.releases[0].platforms.android.attempts.push({
+  (
+    bothPublic.releases[0] as StoreReleaseRecord
+  ).platforms.android.attempts.push({
     easBuildId: 'android-a',
     appVersion: '1.8.0',
     buildNumber: '1',

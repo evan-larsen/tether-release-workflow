@@ -175,7 +175,7 @@ export function buildPreparationContractPair(
   if (id === 'wrong-preparation-build-link') {
     const previous = correctionState(partialPublicState());
     const next = structuredClone(previous) as ReleaseState;
-    next.releases[0].platforms.android.attempts.push({
+    (next.releases[0] as StoreReleaseRecord).platforms.android.attempts.push({
       easBuildId: 'android-wrong',
       appVersion: '1.8.1',
       buildNumber: '2',

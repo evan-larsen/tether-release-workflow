@@ -1,6 +1,7 @@
 import { isRelease } from './release-validation.ts';
 import { hasExactKeys, isNative } from './state-validation-primitives.ts';
 import { getPlatformPreparations } from './platform-preparation-validation.ts';
+import { isAdoptedBaseline } from './legacy-baseline-validation.ts';
 import type { ReleaseState } from './types.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
@@ -46,6 +47,13 @@ export function getNextNative(value: unknown): string {
 }
 
 function getBuildIds(release: Record<string, unknown>): string[] {
+  if (release.releaseType === 'adopted_baseline') {
+    const artifacts = release.artifacts as Record<
+      string,
+      { easBuildId: string }
+    >;
+    return PLATFORMS.map((platform) => artifacts[platform].easBuildId);
+  }
   const platforms = release.platforms as Record<
     string,
     { attempts: Array<{ easBuildId: string }> }
@@ -67,6 +75,7 @@ function getBuildIds(release: Record<string, unknown>): string[] {
 }
 
 function getSubmissionIds(release: Record<string, unknown>): string[] {
+  if (release.releaseType === 'adopted_baseline') return [];
   const platforms = release.platforms as Record<
     string,
     {
@@ -126,6 +135,10 @@ function hasValidGenerationRelationships(
   releases: Array<Record<string, unknown>>,
 ): boolean {
   const currentNumber = getNativeNumber(state.currentNative);
+  const adopted = releases.filter(isAdoptedBaseline);
+  if (adopted.length > 1) return false;
+  if (adopted.length && (adopted[0].native !== 'native-1' || currentNumber < 1))
+    return false;
   const introductions = releases.filter(
     (release) =>
       release.releaseType === 'store' && release.nativeFloorVersion !== null,
@@ -147,6 +160,7 @@ function hasValidGenerationRelationships(
   if (unfinished.length > 1) return false;
 
   for (const release of releases) {
+    if (release.releaseType === 'adopted_baseline') continue;
     if (release.releaseType !== 'store') continue;
     const nativeNumber = getNativeNumber(release.native);
     const introduces = release.nativeFloorVersion !== null;

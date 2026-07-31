@@ -7,6 +7,7 @@ import {
 import { isExactEmptyV1 } from './state-migration.ts';
 import { getNextNative, isReleaseState } from './state-validation.ts';
 import { getPlatformCorrectionUpdateKind } from './platform-correction-update-validation.ts';
+import { isLegacyBaselineAdoption } from './legacy-baseline-update-validation.ts';
 import type {
   ReleaseRecord,
   ReleaseState,
@@ -15,6 +16,7 @@ import type {
 import { equal } from './update-validation-utils.ts';
 
 function hasEmptyPlatforms(release: ReleaseRecord): boolean {
+  if (release.releaseType === 'adopted_baseline') return false;
   return (['ios', 'android'] as const).every((platform) => {
     const record = release.platforms[platform];
     if (record.attempts.length !== 0) return false;
@@ -28,6 +30,7 @@ function isInitialRelease(
   previous: ReleaseState,
   release: ReleaseRecord,
 ): boolean {
+  if (release.releaseType === 'adopted_baseline') return false;
   if (release.status !== 'in_progress' || !hasEmptyPlatforms(release))
     return false;
   if (release.releaseType === 'ota')
@@ -224,6 +227,7 @@ export function validateReleaseStateUpdate(
   )
     return false;
   if (isAppendOrSupersession(previous, next)) return true;
+  if (isLegacyBaselineAdoption(previous, next)) return true;
   if (isStagingLaneUpdate(previous, next)) return true;
   const index = getOnlyChangedRelease(previous, next);
   if (index === null || !equal(previous.stagingLane, next.stagingLane))
