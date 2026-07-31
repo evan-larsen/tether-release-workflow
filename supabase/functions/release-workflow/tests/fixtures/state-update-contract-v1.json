@@ -169,6 +169,42 @@
       "previous": "reset-pending-preview-candidate",
       "next": "claimed-preview-candidate",
       "expected": false
+    },
+    {
+      "id": "production-provisioning-intent",
+      "previous": "approved-native-candidate",
+      "next": "provisioning-intent",
+      "expected": true
+    },
+    {
+      "id": "production-provisioning-ios-deployment-ready",
+      "previous": "provisioning-intent",
+      "next": "provisioning-ios-deployment-ready",
+      "expected": true
+    },
+    {
+      "id": "production-provisioning-ios-eas-configured",
+      "previous": "provisioning-ios-deployment-ready",
+      "next": "provisioning-ios-eas-configured",
+      "expected": true
+    },
+    {
+      "id": "production-provisioning-forged-deployment",
+      "previous": "provisioning-intent",
+      "next": "forged-provisioning-deployment",
+      "expected": false
+    },
+    {
+      "id": "production-provisioning-unknown-retry",
+      "previous": "provisioning-unknown",
+      "next": "provisioning-retried",
+      "expected": false
+    },
+    {
+      "id": "production-provisioning-bundled-current-native",
+      "previous": "approved-native-candidate",
+      "next": "provisioning-with-current-native",
+      "expected": false
     }
   ]
 }

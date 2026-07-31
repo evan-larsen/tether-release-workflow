@@ -47,7 +47,7 @@ export function getBaseLifecycleKind(
   if (
     newBase[deployment] &&
     equal(expected, newBase) &&
-    (deployment !== 'production' || oldBase.staging)
+    (deployment !== 'production' || oldBase.staging === null || oldBase.staging)
   )
     return `${deployment}_base_registered`;
   return null;

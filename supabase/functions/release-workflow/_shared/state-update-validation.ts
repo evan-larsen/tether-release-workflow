@@ -1,9 +1,5 @@
 import { getPreviewUpdateKind } from './preview-update-validation.ts';
-import {
-  getProductionUpdateKind,
-  getReleaseUpdateKind,
-  hasAllRegistered,
-} from './production-update-validation.ts';
+import { getReleaseUpdateKind } from './production-update-validation.ts';
 import { isExactEmptyV1 } from './state-migration.ts';
 import { getNextNative, isReleaseState } from './state-validation.ts';
 import { isStagingLaneTarget } from './staging-lane-validation.ts';
@@ -15,6 +11,7 @@ import type {
   StoreReleaseRecord,
 } from './types.ts';
 import { equal } from './update-validation-utils.ts';
+import { getProductionProvisioningUpdateKind } from './production-provisioning-update-validation.ts';
 
 function isRollbackUpdate(previous: ReleaseState, next: ReleaseState): boolean {
   if (
@@ -263,12 +260,18 @@ function isCurrentNativeCompletion(
     oldRelease.nativeFloorVersion !== null &&
     oldRelease.native === getNextNative(previous.currentNative) &&
     next.currentNative === oldRelease.native &&
+    oldRelease.status === 'in_progress' &&
     oldRelease.preview?.status === 'approved' &&
     oldRelease.productionCommit !== null &&
     newRelease.status === 'complete' &&
-    hasAllRegistered(newRelease) &&
-    getProductionUpdateKind(oldRelease, newRelease) ===
-      'production_base_registered'
+    oldRelease.productionProvisioning !== undefined &&
+    (['ios', 'android'] as const).every((platform) =>
+      oldRelease.platforms[platform].attempts.some(
+        (attempt) =>
+          attempt.base?.status === 'registered' && attempt.base.production,
+      ),
+    ) &&
+    equal({ ...oldRelease, status: 'complete' }, newRelease)
   );
 }
 
@@ -311,8 +314,9 @@ export function validateReleaseStateUpdate(
         newRelease as unknown as Record<string, unknown>,
       ) ||
       getPreviewUpdateKind(oldRelease, newRelease, next) ||
-      getReleaseUpdateKind(oldRelease, newRelease),
+      getProductionProvisioningUpdateKind(oldRelease, newRelease, next) ||
+      getReleaseUpdateKind(oldRelease, newRelease, previous),
     );
   }
-  return Boolean(getReleaseUpdateKind(oldRelease, newRelease));
+  return Boolean(getReleaseUpdateKind(oldRelease, newRelease, previous));
 }

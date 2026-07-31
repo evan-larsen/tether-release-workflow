@@ -16,6 +16,7 @@ import {
   isTargetRange,
 } from './staging-ota-validation.ts';
 import { isProductionOta } from './production-ota-validation.ts';
+import { isProductionProvisioning } from './production-provisioning-validation.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
 function isOta(
@@ -166,6 +167,9 @@ export function isRelease(value: unknown): boolean {
         ...(Object.hasOwn(release, 'platformPreparations')
           ? ['platformPreparations']
           : []),
+        ...(Object.hasOwn(release, 'productionProvisioning')
+          ? ['productionProvisioning']
+          : []),
       ]) ||
       !isPreparation(preparation) ||
       preparation.marketingVersion !== release.version ||
@@ -189,7 +193,9 @@ export function isRelease(value: unknown): boolean {
             ),
           ))
       ) ||
-      !hasValidPlatformPreparations(release)
+      !hasValidPlatformPreparations(release) ||
+      (Object.hasOwn(release, 'productionProvisioning') &&
+        !isProductionProvisioning(release.productionProvisioning, release))
     )
       return false;
   } else if (

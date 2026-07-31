@@ -13,6 +13,7 @@ import {
   buildCompleteCandidate,
   buildStagingLaneContractPair,
 } from './state-update-contract-cases.ts';
+import { buildProductionProvisioning } from '../_shared/production-provisioning-validation.ts';
 
 const time = '2026-07-30T12:00:00.000Z';
 const sha = (character: string) => character.repeat(40);
@@ -135,6 +136,67 @@ function buildPair(id: string): [unknown, unknown] {
   };
   const stagingPair = buildStagingLaneContractPair(id, dependencies);
   if (stagingPair) return stagingPair;
+  const approvedState = () => buildApprovedState(previewCandidate, emptyV2);
+  const provisioningIntent = () => {
+    const next = approvedState();
+    const release = next.releases[0] as StoreReleaseRecord;
+    release.productionProvisioning = buildProductionProvisioning(release);
+    return next;
+  };
+  if (id === 'production-provisioning-intent')
+    return [approvedState(), provisioningIntent()];
+  if (id === 'production-provisioning-ios-deployment-ready') {
+    const previous = provisioningIntent();
+    const next = structuredClone(previous);
+    (
+      next.releases[0] as StoreReleaseRecord
+    ).productionProvisioning!.platforms.ios.status = 'deployment_ready';
+    return [previous, next];
+  }
+  if (id === 'production-provisioning-ios-eas-configured') {
+    const previous = provisioningIntent();
+    (
+      previous.releases[0] as StoreReleaseRecord
+    ).productionProvisioning!.platforms.ios.status = 'deployment_ready';
+    const next = structuredClone(previous);
+    const record = (next.releases[0] as StoreReleaseRecord)
+      .productionProvisioning!.platforms.ios;
+    record.status = 'eas_configured';
+    record.easVariable = {
+      id: 'eas-variable-id',
+      name: record.easVariableName,
+      environment: record.environment,
+      scope: record.scope,
+      visibility: record.visibility,
+      type: record.type,
+      updatedAt: time,
+    };
+    return [previous, next];
+  }
+  if (id === 'production-provisioning-forged-deployment') {
+    const previous = provisioningIntent();
+    const next = structuredClone(previous);
+    (
+      next.releases[0] as StoreReleaseRecord
+    ).productionProvisioning!.platforms.ios.deployment = 'production-native-3';
+    return [previous, next];
+  }
+  if (id === 'production-provisioning-unknown-retry') {
+    const previous = provisioningIntent();
+    (
+      previous.releases[0] as StoreReleaseRecord
+    ).productionProvisioning!.platforms.ios.status = 'unknown';
+    const next = structuredClone(previous);
+    (
+      next.releases[0] as StoreReleaseRecord
+    ).productionProvisioning!.platforms.ios.status = 'intent';
+    return [previous, next];
+  }
+  if (id === 'production-provisioning-bundled-current-native') {
+    const next = provisioningIntent();
+    next.currentNative = 'native-2';
+    return [approvedState(), next];
+  }
   const established = emptyV2('native-1');
   if (id === 'illegal-current-native-jump')
     return [emptyV2(), emptyV2('native-1')];
@@ -263,3 +325,61 @@ for (const contractCase of corpus.cases) {
     );
   });
 }
+
+function nativeActivationPair(
+  includeAndroidBase: boolean,
+): [ReleaseState, ReleaseState] {
+  const previous = buildApprovedState(previewCandidate, emptyV2);
+  const release = previous.releases[0] as StoreReleaseRecord;
+  release.productionCommit = sha('c');
+  release.productionProvisioning = buildProductionProvisioning(release);
+  for (const platform of ['ios', 'android'] as const) {
+    const provision = release.productionProvisioning.platforms[platform];
+    provision.status = 'eas_configured';
+    provision.easVariable = {
+      id: `${platform}-variable`,
+      name: provision.easVariableName,
+      environment: provision.environment,
+      scope: provision.scope,
+      visibility: provision.visibility,
+      type: provision.type,
+      updatedAt: time,
+    };
+    if (platform === 'android' && !includeAndroidBase) continue;
+    release.platforms[platform].attempts.push({
+      easBuildId: `${platform}-production`,
+      appVersion: release.version,
+      buildNumber: '2',
+      profile: 'production',
+      status: 'succeeded',
+      sourcePreparationId: release.preparation.preparationId,
+      submissions: [{ id: `${platform}-submission`, status: 'submitted' }],
+      storeStatus: { status: 'live', providerState: 'LIVE', checkedAt: time },
+      base: {
+        status: 'registered',
+        staging: null,
+        production: {
+          label: `${platform}-production`,
+          packageHash: `${platform}-hash`,
+        },
+      },
+    });
+  }
+  const next = structuredClone(previous);
+  next.currentNative = 'native-2';
+  (next.releases[0] as StoreReleaseRecord).status = 'complete';
+  return [previous, next];
+}
+
+Deno.test(
+  'native activation permits only the exact verified two-platform delta',
+  () => {
+    const [before, activated] = nativeActivationPair(true);
+    assertEquals(validateReleaseStateUpdate(before, activated), true);
+    const [incomplete, forgedActivation] = nativeActivationPair(false);
+    assertEquals(
+      validateReleaseStateUpdate(incomplete, forgedActivation),
+      false,
+    );
+  },
+);

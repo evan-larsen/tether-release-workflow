@@ -2,6 +2,7 @@ import type {
   OtaReleaseRecord,
   Platform,
   ReleaseRecord,
+  ReleaseState,
   StoreReleaseRecord,
 } from './types.ts';
 import { clone, equal } from './update-validation-utils.ts';
@@ -42,13 +43,17 @@ function isRetryAllowed(
 export function getProductionUpdateKind(
   previous: StoreReleaseRecord,
   next: StoreReleaseRecord,
+  state?: ReleaseState,
 ): string | null {
   for (const platform of PLATFORMS) {
     const sourceRelease = previous as unknown as Record<string, unknown>;
-    if (hasPlatformPublicProgress(sourceRelease, platform)) continue;
+    const publicProgress = hasPlatformPublicProgress(sourceRelease, platform);
     const before = previous.platforms[platform];
     const after = next.platforms[platform];
-    if (after.attempts.length === before.attempts.length + 1) {
+    if (
+      !publicProgress &&
+      after.attempts.length === before.attempts.length + 1
+    ) {
       const attempt = after.attempts.at(-1)!;
       const expected = clone(previous);
       expected.platforms[platform].attempts.push(attempt);
@@ -75,6 +80,7 @@ export function getProductionUpdateKind(
       const newAttempt = after.attempts[index];
       if (!newAttempt) continue;
       if (
+        !publicProgress &&
         oldAttempt.status === 'requested' &&
         ['succeeded', 'failed'].includes(newAttempt.status)
       ) {
@@ -85,7 +91,10 @@ export function getProductionUpdateKind(
 
       const oldSubmissions = oldAttempt.submissions;
       const newSubmissions = newAttempt.submissions;
-      if (newSubmissions.length === oldSubmissions.length + 1) {
+      if (
+        !publicProgress &&
+        newSubmissions.length === oldSubmissions.length + 1
+      ) {
         const submission = newSubmissions.at(-1)!;
         const expected = clone(previous);
         expected.platforms[platform].attempts[index].submissions.push(
@@ -101,6 +110,7 @@ export function getProductionUpdateKind(
           return 'submission_started';
       }
       if (
+        !publicProgress &&
         oldSubmissions.at(-1)?.status === 'pending' &&
         ['submitted', 'failed', 'unknown'].includes(
           newSubmissions.at(-1)?.status ?? '',
@@ -114,6 +124,7 @@ export function getProductionUpdateKind(
       }
 
       if (
+        !publicProgress &&
         newAttempt.storeStatus !== null &&
         oldSubmissions.at(-1)?.status === 'submitted' &&
         (oldAttempt.storeStatus === null ||
@@ -138,7 +149,8 @@ export function getProductionUpdateKind(
       if (baseLifecycle) {
         if (
           baseLifecycle === 'production_base_registered' &&
-          hasAllRegistered(next)
+          hasAllRegistered(next) &&
+          (!state || next.native === state.currentNative)
         )
           expected.status = 'complete';
         if (equal(expected, next)) return baseLifecycle;
@@ -266,6 +278,7 @@ function getOtaUpdateKind(
 export function getReleaseUpdateKind(
   previous: ReleaseRecord,
   next: ReleaseRecord,
+  state?: ReleaseState,
 ): string | null {
   if (previous.releaseType === 'adopted_baseline')
     return getAdoptedUpdateKind(previous, next);
@@ -288,5 +301,5 @@ export function getReleaseUpdateKind(
     expected.productionCommit = next.productionCommit;
     if (equal(expected, next)) return 'production_commit_attached';
   }
-  return getProductionUpdateKind(previous, next);
+  return getProductionUpdateKind(previous, next, state);
 }

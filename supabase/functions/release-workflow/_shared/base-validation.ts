@@ -60,12 +60,12 @@ export function isBase(
       !intent ||
       (intent.deployment === 'staging'
         ? base.staging === null
-        : base.staging !== null)
+        : base.staging === null || isRevoPushFact(base.staging))
     );
   }
   return (
     !hasRegistration &&
-    isRevoPushFact(base.staging) &&
+    (base.staging === null || isRevoPushFact(base.staging)) &&
     isRevoPushFact(base.production)
   );
 }

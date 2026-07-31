@@ -113,6 +113,40 @@ export interface PlatformPreparation {
   status: 'prepared' | 'superseded';
 }
 
+export type ProductionProvisioningStatus =
+  'intent' | 'retryable' | 'unknown' | 'deployment_ready' | 'eas_configured';
+
+export interface ProductionEasVariableMetadata {
+  id: string;
+  name: string;
+  environment: 'production';
+  scope: 'project';
+  visibility: 'sensitive';
+  type: 'string';
+  updatedAt: string;
+}
+
+export interface ProductionProvisioningPlatform {
+  status: ProductionProvisioningStatus;
+  app: 'Tether-iOS' | 'Tether-Android';
+  deployment: string;
+  easVariableName: string;
+  environment: 'production';
+  scope: 'project';
+  visibility: 'sensitive';
+  type: 'string';
+  easVariable?: ProductionEasVariableMetadata;
+}
+
+export interface ProductionProvisioning {
+  candidateId: string;
+  preparationId: string;
+  treeHash: string;
+  preparedCommit: string;
+  native: string;
+  platforms: Record<Platform, ProductionProvisioningPlatform>;
+}
+
 export interface ReleasePlatform {
   attempts: ProductionAttempt[];
   ota: {
@@ -136,6 +170,7 @@ export interface StoreReleaseRecord extends ReleaseRecordBase {
   nativeFloorVersion: string | null;
   preview: PreviewRecord | null;
   platformPreparations?: PlatformPreparation[];
+  productionProvisioning?: ProductionProvisioning;
   releaseType: 'store';
 }
 
