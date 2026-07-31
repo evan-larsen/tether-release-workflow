@@ -31,11 +31,13 @@ export function isLegacyBaselineAdoption(
     return false;
   return previous.releases.every((release, index) =>
     equal(
-      {
-        ...release,
-        status: 'superseded',
-        supersededReason: 'pre_baseline_adoption',
-      },
+      release.status === 'in_progress'
+        ? {
+            ...release,
+            status: 'superseded',
+            supersededReason: 'pre_baseline_adoption',
+          }
+        : release,
       next.releases[index],
     ),
   );

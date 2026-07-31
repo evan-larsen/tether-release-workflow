@@ -91,11 +91,44 @@ function adoptionState() {
   };
 }
 
+function mixedWorkflowState() {
+  const current = workflowState();
+  const prior = structuredClone(current.releases[0]) as Record<string, unknown>;
+  prior.id = 'prior-workflow-only';
+  (prior.preparation as Record<string, unknown>).preparationId = 'prior-prep';
+  prior.status = 'superseded';
+  current.releases = [prior, current.releases[0]] as typeof current.releases;
+  return current;
+}
+
 Deno.test(
   'accepts only the narrow two-platform legacy live-baseline adoption',
   () => {
     const previous = workflowState();
     const next = adoptionState();
+    assertEquals(isReleaseState(previous), true);
+    assertEquals(isReleaseState(next), true);
+    assertEquals(validateReleaseStateUpdate(previous, next), true);
+  },
+);
+
+Deno.test(
+  'preserves workflow-only prior supersessions and supersedes only in-progress records',
+  () => {
+    const previous = mixedWorkflowState();
+    const next = {
+      ...previous,
+      currentNative: 'native-1',
+      releases: [
+        previous.releases[0],
+        {
+          ...previous.releases[1],
+          status: 'superseded',
+          supersededReason: 'pre_baseline_adoption',
+        },
+        baseline(),
+      ],
+    };
     assertEquals(isReleaseState(previous), true);
     assertEquals(isReleaseState(next), true);
     assertEquals(validateReleaseStateUpdate(previous, next), true);

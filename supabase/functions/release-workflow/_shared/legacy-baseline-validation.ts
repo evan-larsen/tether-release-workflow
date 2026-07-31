@@ -84,7 +84,10 @@ export function isAdoptedBaseline(value: unknown): boolean {
 
 export function isPreBaselineWorkflowRecord(value: unknown): boolean {
   const release = value as Record<string, unknown>;
-  if (release.releaseType !== 'store' || release.status !== 'in_progress')
+  if (
+    release.releaseType !== 'store' ||
+    !['in_progress', 'superseded'].includes(String(release.status))
+  )
     return false;
   if (release.productionCommit !== null) return false;
   const platforms = release.platforms as Record<
