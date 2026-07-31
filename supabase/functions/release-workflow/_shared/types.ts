@@ -111,6 +111,16 @@ export interface PlatformPreparation {
   preparedCommit: string;
   preparedAt: string;
   status: 'prepared' | 'superseded';
+  preview?: {
+    attempts: PreviewBuildAttempt[];
+    stagingBase: {
+      status:
+        'clear_intent' | 'clearing' | 'cleared' | 'unknown' | 'registered';
+      easBuildId: string;
+      label: string | null;
+      packageHash: string | null;
+    } | null;
+  };
 }
 
 export type ProductionProvisioningStatus =

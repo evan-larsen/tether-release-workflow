@@ -8,6 +8,7 @@ import type {
 import { clone, equal } from './update-validation-utils.ts';
 import {
   getActivePreparationId,
+  hasCompletedCorrectionPreview,
   hasKnownPreparation,
   hasPlatformPublicProgress,
 } from './platform-preparation-validation.ts';
@@ -61,6 +62,10 @@ export function getProductionUpdateKind(
         ['requested', 'succeeded', 'failed'].includes(attempt.status) &&
         attempt.sourcePreparationId ===
           getActivePreparationId(sourceRelease, platform) &&
+        (attempt.sourcePreparationId ===
+          (sourceRelease.preparation as Record<string, unknown>)
+            .preparationId ||
+          hasCompletedCorrectionPreview(sourceRelease, platform)) &&
         hasKnownPreparation(
           sourceRelease,
           platform,

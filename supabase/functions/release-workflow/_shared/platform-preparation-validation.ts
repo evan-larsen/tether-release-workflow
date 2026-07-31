@@ -6,6 +6,64 @@ import {
 
 const PLATFORMS = ['ios', 'android'] as const;
 
+function isCorrectionPreviewAttempt(value: unknown): boolean {
+  return (
+    hasExactKeys(value, [
+      'easBuildId',
+      'appVersion',
+      'buildNumber',
+      'profile',
+      'status',
+    ]) &&
+    ['easBuildId', 'appVersion', 'buildNumber', 'profile'].every((key) =>
+      isNonEmptyString((value as Record<string, unknown>)[key]),
+    ) &&
+    (value as Record<string, unknown>).profile === 'preview' &&
+    ['requested', 'succeeded', 'failed'].includes(
+      String((value as Record<string, unknown>).status),
+    )
+  );
+}
+
+function isCorrectionPreview(value: unknown): boolean {
+  if (!hasExactKeys(value, ['attempts', 'stagingBase'])) return false;
+  const preview = value as Record<string, unknown>;
+  if (
+    !Array.isArray(preview.attempts) ||
+    !preview.attempts.every(isCorrectionPreviewAttempt)
+  )
+    return false;
+  const attempts = preview.attempts as Array<Record<string, unknown>>;
+  if (
+    attempts.slice(0, -1).some((attempt) => attempt.status !== 'failed') ||
+    new Set(attempts.map((attempt) => attempt.easBuildId)).size !==
+      attempts.length
+  )
+    return false;
+  if (preview.stagingBase === null) return true;
+  if (
+    !hasExactKeys(preview.stagingBase, [
+      'status',
+      'easBuildId',
+      'label',
+      'packageHash',
+    ])
+  )
+    return false;
+  const base = preview.stagingBase as Record<string, unknown>;
+  const registered = base.status === 'registered';
+  return (
+    ['clear_intent', 'clearing', 'cleared', 'unknown', 'registered'].includes(
+      String(base.status),
+    ) &&
+    attempts.at(-1)?.status === 'succeeded' &&
+    base.easBuildId === attempts.at(-1)?.easBuildId &&
+    (registered
+      ? isNonEmptyString(base.label) && isNonEmptyString(base.packageHash)
+      : base.label === null && base.packageHash === null)
+  );
+}
+
 export function getPlatformPreparations(
   release: Record<string, unknown>,
 ): Array<Record<string, unknown>> {
@@ -15,6 +73,7 @@ export function getPlatformPreparations(
 function isPlatformPreparation(
   value: unknown,
 ): value is Record<string, unknown> {
+  const hasPreview = Object.hasOwn(value as object, 'preview');
   return (
     hasExactKeys(value, [
       'preparationId',
@@ -23,6 +82,7 @@ function isPlatformPreparation(
       'preparedCommit',
       'preparedAt',
       'status',
+      ...(hasPreview ? ['preview'] : []),
     ]) &&
     isNonEmptyString(value.preparationId) &&
     PLATFORMS.includes(value.platform as (typeof PLATFORMS)[number]) &&
@@ -31,8 +91,28 @@ function isPlatformPreparation(
     typeof value.preparedCommit === 'string' &&
     /^[0-9a-f]{40}$/i.test(value.preparedCommit) &&
     isTimestamp(value.preparedAt) &&
-    ['prepared', 'superseded'].includes(String(value.status))
+    ['prepared', 'superseded'].includes(String(value.status)) &&
+    (!hasPreview ||
+      isCorrectionPreview((value as Record<string, unknown>).preview))
   );
+}
+
+export function hasCompletedCorrectionPreview(
+  release: Record<string, unknown>,
+  platform: string,
+): boolean {
+  const preparation = getPlatformPreparations(release).find(
+    (item) => item.platform === platform && item.status === 'prepared',
+  );
+  return (preparation?.preview as Record<string, unknown> | undefined)
+    ?.stagingBase
+    ? (
+        (preparation!.preview as Record<string, unknown>).stagingBase as Record<
+          string,
+          unknown
+        >
+      ).status === 'registered'
+    : false;
 }
 
 export function hasValidPlatformPreparations(

@@ -3,7 +3,10 @@ import { getReleaseUpdateKind } from './production-update-validation.ts';
 import { isExactEmptyV1 } from './state-migration.ts';
 import { getNextNative, isReleaseState } from './state-validation.ts';
 import { isStagingLaneTarget } from './staging-lane-validation.ts';
-import { getPlatformCorrectionUpdateKind } from './platform-correction-update-validation.ts';
+import {
+  getCorrectionPreviewUpdateKind,
+  getPlatformCorrectionUpdateKind,
+} from './platform-correction-update-validation.ts';
 import { isValidInitialOta } from './ota-source-validation.ts';
 import type {
   ReleaseRecord,
@@ -310,6 +313,10 @@ export function validateReleaseStateUpdate(
   ) {
     return Boolean(
       getPlatformCorrectionUpdateKind(
+        oldRelease as unknown as Record<string, unknown>,
+        newRelease as unknown as Record<string, unknown>,
+      ) ||
+      getCorrectionPreviewUpdateKind(
         oldRelease as unknown as Record<string, unknown>,
         newRelease as unknown as Record<string, unknown>,
       ) ||

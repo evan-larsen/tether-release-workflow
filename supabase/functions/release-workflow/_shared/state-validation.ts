@@ -39,10 +39,19 @@ function getBuildIds(release: Record<string, unknown>): string[] {
   const preview = release.preview as {
     platforms: Record<string, { attempts: Array<{ easBuildId: string }> }>;
   };
+  const corrections = getPlatformPreparations(release);
   return [
     ...production,
     ...PLATFORMS.flatMap((platform) =>
       preview.platforms[platform].attempts.map((attempt) => attempt.easBuildId),
+    ),
+    ...corrections.flatMap((correction) =>
+      (
+        (
+          correction.preview as
+            { attempts?: Array<{ easBuildId: string }> } | undefined
+        )?.attempts ?? []
+      ).map((attempt) => attempt.easBuildId),
     ),
   ];
 }

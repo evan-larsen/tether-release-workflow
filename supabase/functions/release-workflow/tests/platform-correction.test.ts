@@ -77,6 +77,7 @@ function correction(
       preparedCommit: sha('e'),
       preparedAt: time,
       status: 'prepared',
+      preview: { attempts: [], stagingBase: null },
     },
   ];
   return next;
@@ -156,4 +157,61 @@ Deno.test('rejects corrections with zero or two public platforms', () => {
     validateReleaseStateUpdate(bothPublic, correction(bothPublic)),
     false,
   );
+});
+
+Deno.test('accepts only the exact scoped Preview rebase lifecycle', () => {
+  const previewFor = (state: ReleaseState) =>
+    (
+      (state.releases[0] as unknown as Record<string, unknown>)
+        .platformPreparations as Array<Record<string, unknown>>
+    )[0].preview as {
+      attempts: Array<Record<string, unknown>>;
+      stagingBase: Record<string, unknown> | null;
+    };
+  const prepared = correction(partialPublicState());
+  const build = structuredClone(prepared) as ReleaseState;
+  previewFor(build).attempts = [
+    {
+      easBuildId: 'android-preview-correction',
+      appVersion: '1.8.0',
+      buildNumber: '2',
+      profile: 'preview',
+      status: 'requested',
+    },
+  ];
+  assertEquals(validateReleaseStateUpdate(prepared, build), true);
+  const succeeded = structuredClone(build) as ReleaseState;
+  previewFor(succeeded).attempts[0].status = 'succeeded';
+  assertEquals(validateReleaseStateUpdate(build, succeeded), true);
+  const intent = structuredClone(succeeded) as ReleaseState;
+  previewFor(intent).stagingBase = {
+    status: 'clear_intent',
+    easBuildId: 'android-preview-correction',
+    label: null,
+    packageHash: null,
+  };
+  assertEquals(validateReleaseStateUpdate(succeeded, intent), true);
+  const clearing = structuredClone(intent) as ReleaseState;
+  previewFor(clearing).stagingBase!.status = 'clearing';
+  assertEquals(validateReleaseStateUpdate(intent, clearing), true);
+  const cleared = structuredClone(clearing) as ReleaseState;
+  previewFor(cleared).stagingBase!.status = 'cleared';
+  assertEquals(validateReleaseStateUpdate(clearing, cleared), true);
+  const registered = structuredClone(cleared) as ReleaseState;
+  Object.assign(previewFor(registered).stagingBase!, {
+    status: 'registered',
+    label: 'v42',
+    packageHash: 'hash',
+  });
+  assertEquals(validateReleaseStateUpdate(cleared, registered), true);
+
+  const forged = structuredClone(intent) as ReleaseState;
+  previewFor(forged).stagingBase!.easBuildId = 'wrong-platform-build';
+  assertEquals(validateReleaseStateUpdate(succeeded, forged), false);
+  const bundled = structuredClone(build) as ReleaseState;
+  (
+    bundled.releases[0] as StoreReleaseRecord
+  ).platforms.ios.attempts[0].storeStatus!.checkedAt =
+    '2026-07-31T12:00:00.000Z';
+  assertEquals(validateReleaseStateUpdate(prepared, bundled), false);
 });
