@@ -5,14 +5,6 @@ type StagingDependencies = {
   previewCandidate: () => StoreReleaseRecord;
 };
 
-type LegacyBaselineDependencies = {
-  emptyPlatforms: () => StoreReleaseRecord['platforms'];
-  emptyV2: (currentNative?: string | null) => ReleaseState;
-  previewRecord: (approved: boolean) => StoreReleaseRecord['preview'];
-  sha: (character: string) => string;
-  time: string;
-};
-
 export function buildStagingLaneContractPair(
   id: string,
   { emptyV2, previewCandidate }: StagingDependencies,
@@ -95,99 +87,4 @@ export function buildCompleteCandidate(
   }
   release.status = 'complete';
   return release;
-}
-
-export function buildLegacyBaselineContractPair(
-  id: string,
-  {
-    emptyPlatforms,
-    emptyV2,
-    previewRecord,
-    sha,
-    time,
-  }: LegacyBaselineDependencies,
-): [unknown, unknown] | null {
-  if (!id.startsWith('legacy-live-baseline-')) return null;
-  const previous: ReleaseState = {
-    ...emptyV2(),
-    releases: [
-      {
-        id: 'pre-baseline-workflow',
-        version: '1.8.0',
-        preparation: {
-          preparationId: 'legacy-prep',
-          treeHash: sha('a'),
-          preparedCommit: sha('b'),
-          marketingVersion: '1.8.0',
-          nativeGeneration: 'native-1',
-          preparedAt: time,
-          status: 'prepared',
-        },
-        productionCommit: null,
-        native: 'native-1',
-        nativeFloorVersion: '1.8.0',
-        preview: previewRecord(false),
-        createdAt: time,
-        releaseType: 'store',
-        status: 'in_progress',
-        platforms: emptyPlatforms(),
-      },
-    ],
-  };
-  const source = { commit: sha('d'), treeHash: sha('e') };
-  const artifact = (easBuildId: string, buildNumber: string) => ({
-    easBuildId,
-    appVersion: '1.8.0',
-    buildNumber,
-    profile: 'production' as const,
-    status: 'succeeded' as const,
-    sourceCommit: source.commit,
-    sourceTreeHash: source.treeHash,
-    storeStatus: {
-      status: 'live' as const,
-      providerState: 'LIVE',
-      checkedAt: time,
-    },
-    base: { status: 'eligible' as const, staging: null, production: null },
-  });
-  const next = {
-    ...previous,
-    currentNative: 'native-1',
-    releases: [
-      {
-        ...previous.releases[0],
-        status: 'superseded',
-        supersededReason: 'pre_baseline_adoption',
-      },
-      {
-        id: 'adopted-baseline-native-1-1.8.0',
-        version: '1.8.0',
-        native: 'native-1',
-        nativeFloorVersion: '1.8.0',
-        source,
-        createdAt: time,
-        releaseType: 'adopted_baseline',
-        status: 'adopted',
-        artifacts: {
-          ios: artifact('legacy-ios', '84'),
-          android: artifact('legacy-android', '22'),
-        },
-      },
-    ],
-  };
-  if (id === 'legacy-live-baseline-forged-base') {
-    (next.releases[1] as Record<string, unknown>).artifacts = {
-      ...(next.releases[1] as { artifacts: Record<string, unknown> }).artifacts,
-      ios: {
-        ...((next.releases[1] as { artifacts: Record<string, unknown> })
-          .artifacts.ios as Record<string, unknown>),
-        base: {
-          status: 'eligible',
-          staging: { label: 'v1' },
-          production: null,
-        },
-      },
-    };
-  }
-  return [previous, next];
 }

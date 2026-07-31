@@ -81,39 +81,3 @@ export function isAdoptedBaseline(value: unknown): boolean {
     )
   );
 }
-
-export function isPreBaselineWorkflowRecord(value: unknown): boolean {
-  const release = value as Record<string, unknown>;
-  if (
-    release.releaseType !== 'store' ||
-    !['in_progress', 'superseded'].includes(String(release.status))
-  )
-    return false;
-  if (release.productionCommit !== null) return false;
-  const platforms = release.platforms as Record<
-    string,
-    { attempts: unknown[]; ota: unknown }
-  >;
-  const preview = release.preview as {
-    status: unknown;
-    platforms: Record<
-      string,
-      { attempts: unknown[]; stagingBase: unknown; stagingOta: unknown }
-    >;
-  } | null;
-  return (
-    PLATFORMS.every((platform) => {
-      const production = platforms[platform];
-      const previewPlatform = preview?.platforms[platform];
-      return (
-        production.attempts.length === 0 &&
-        production.ota === null &&
-        (!previewPlatform ||
-          (previewPlatform.attempts.length === 0 &&
-            previewPlatform.stagingBase === null &&
-            previewPlatform.stagingOta === null))
-      );
-    }) &&
-    (preview === null || preview.status === 'required')
-  );
-}

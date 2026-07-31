@@ -11,7 +11,6 @@ import { buildPreparationContractPair } from './preparation-contract-cases.ts';
 import {
   buildApprovedState,
   buildCompleteCandidate,
-  buildLegacyBaselineContractPair,
   buildStagingLaneContractPair,
 } from './state-update-contract-cases.ts';
 
@@ -135,8 +134,6 @@ function buildPair(id: string): [unknown, unknown] {
   };
   const stagingPair = buildStagingLaneContractPair(id, dependencies);
   if (stagingPair) return stagingPair;
-  const legacyPair = buildLegacyBaselineContractPair(id, dependencies);
-  if (legacyPair) return legacyPair;
   const established = emptyV2('native-1');
   if (id === 'illegal-current-native-jump')
     return [emptyV2(), emptyV2('native-1')];
