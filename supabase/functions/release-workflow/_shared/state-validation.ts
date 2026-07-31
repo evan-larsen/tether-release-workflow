@@ -1,8 +1,41 @@
 import { isRelease } from './release-validation.ts';
 import { hasExactKeys, isNative } from './state-validation-primitives.ts';
+import { getPlatformPreparations } from './platform-preparation-validation.ts';
 import type { ReleaseState } from './types.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
+
+function isResetProgress(value: unknown): boolean {
+  return (
+    hasExactKeys(value, PLATFORMS) &&
+    PLATFORMS.every((platform) =>
+      ['pending', 'cleared_and_verified'].includes(
+        String((value as Record<string, unknown>)[platform]),
+      ),
+    )
+  );
+}
+
+function isStagingLane(value: unknown): boolean {
+  const lane = value as Record<string, unknown>;
+  const legacy = hasExactKeys(value, ['activeNative', 'resetTargetNative']);
+  const reset = hasExactKeys(value, [
+    'activeNative',
+    'resetTargetNative',
+    'resetProgress',
+  ]);
+  if (
+    (!legacy && !reset) ||
+    (lane.activeNative !== null && !isNative(lane.activeNative)) ||
+    (lane.resetTargetNative !== null && !isNative(lane.resetTargetNative))
+  )
+    return false;
+  return lane.resetTargetNative === null
+    ? !reset
+    : lane.activeNative !== null &&
+        lane.activeNative !== lane.resetTargetNative &&
+        (!reset || isResetProgress(lane.resetProgress));
+}
 
 function getNativeNumber(value: unknown): number {
   return value === null ? 0 : Number(String(value).slice('native-'.length));
@@ -59,20 +92,15 @@ function getPlatforms(release: Record<string, unknown>) {
   >;
 }
 
-function hasPreviewWork(release: Record<string, unknown>): boolean {
+function hasPreviewLaneFacts(release: Record<string, unknown>): boolean {
   const preview = release.preview as Record<string, unknown> | null;
-  if (!preview || preview.status !== 'required') return true;
+  if (!preview) return false;
   const platforms = preview.platforms as Record<
     string,
-    {
-      attempts: unknown[];
-      stagingBase: unknown;
-      stagingOta: unknown;
-    }
+    { stagingBase: unknown; stagingOta: unknown }
   >;
   return PLATFORMS.some(
     (platform) =>
-      platforms[platform].attempts.length > 0 ||
       platforms[platform].stagingBase !== null ||
       platforms[platform].stagingOta !== null,
   );
@@ -176,7 +204,7 @@ function hasValidStagingLane(
     if (
       release.releaseType !== 'store' ||
       release.nativeFloorVersion === null ||
-      !hasPreviewWork(release)
+      !hasPreviewLaneFacts(release)
     )
       return true;
     return (
@@ -195,13 +223,7 @@ export function isReleaseState(value: unknown): value is ReleaseState {
     ]) ||
     value.stateVersion !== 2 ||
     (value.currentNative !== null && !isNative(value.currentNative)) ||
-    !hasExactKeys(value.stagingLane, ['activeNative', 'resetTargetNative']) ||
-    (value.stagingLane.activeNative !== null &&
-      !isNative(value.stagingLane.activeNative)) ||
-    (value.stagingLane.resetTargetNative !== null &&
-      !isNative(value.stagingLane.resetTargetNative)) ||
-    (value.stagingLane.resetTargetNative !== null &&
-      value.stagingLane.activeNative === value.stagingLane.resetTargetNative) ||
+    !isStagingLane(value.stagingLane) ||
     !Array.isArray(value.releases) ||
     !value.releases.every(isRelease)
   )
@@ -210,11 +232,24 @@ export function isReleaseState(value: unknown): value is ReleaseState {
   const releaseIds = releases.map((release) => String(release.id));
   const buildIds = releases.flatMap(getBuildIds);
   const submissionIds = releases.flatMap(getSubmissionIds);
+  const preparationIds = releases.flatMap((release) =>
+    release.releaseType === 'store'
+      ? [
+          String(
+            (release.preparation as Record<string, unknown>).preparationId,
+          ),
+          ...getPlatformPreparations(release).map((item) =>
+            String(item.preparationId),
+          ),
+        ]
+      : [],
+  );
   return (
     hasValidGenerationRelationships(value, releases) &&
     hasValidStagingLane(value, releases) &&
     new Set(releaseIds).size === releaseIds.length &&
     new Set(buildIds).size === buildIds.length &&
-    new Set(submissionIds).size === submissionIds.length
+    new Set(submissionIds).size === submissionIds.length &&
+    new Set(preparationIds).size === preparationIds.length
   );
 }

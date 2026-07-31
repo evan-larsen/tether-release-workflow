@@ -21,20 +21,32 @@ function isLaneReady(state: ReleaseState, release: StoreReleaseRecord) {
     state.stagingLane.resetTargetNative === null
   );
 }
+function isBuildLaneAvailable(
+  state: ReleaseState,
+  release: StoreReleaseRecord,
+) {
+  return (
+    state.stagingLane.resetTargetNative === null &&
+    (state.stagingLane.activeNative === null ||
+      state.stagingLane.activeNative === release.native)
+  );
+}
 
 export function getPreviewUpdateKind(
   previous: StoreReleaseRecord,
   next: StoreReleaseRecord,
   state: ReleaseState,
 ): string | null {
-  if (!previous.preview || !next.preview || !isLaneReady(state, previous))
-    return null;
+  if (!previous.preview || !next.preview) return null;
 
   for (const platform of PLATFORMS) {
     const before = previous.preview.platforms[platform];
     const after = next.preview.platforms[platform];
 
-    if (after.attempts.length === before.attempts.length + 1) {
+    if (
+      isBuildLaneAvailable(state, previous) &&
+      after.attempts.length === before.attempts.length + 1
+    ) {
       const attempt = after.attempts.at(-1)!;
       const expected = clone(previous);
       expected.preview!.platforms[platform].attempts.push(attempt);
@@ -56,21 +68,29 @@ export function getPreviewUpdateKind(
         ) &&
         attempt.easBuildId === after.attempts[attemptIndex]?.easBuildId,
     );
-    if (index >= 0) {
+    if (isBuildLaneAvailable(state, previous) && index >= 0) {
       const expected = clone(previous);
       expected.preview!.platforms[platform].attempts[index].status =
         after.attempts[index].status;
       if (equal(expected, next)) return 'preview_build_resolved';
     }
 
-    if (before.stagingBase === null && after.stagingBase !== null) {
+    if (
+      isLaneReady(state, previous) &&
+      before.stagingBase === null &&
+      after.stagingBase !== null
+    ) {
       const expected = clone(previous);
       expected.preview!.platforms[platform].stagingBase = after.stagingBase;
       expected.preview!.status = 'building';
       if (equal(expected, next)) return 'preview_base_saved';
     }
 
-    if (before.stagingOta === null && after.stagingOta !== null) {
+    if (
+      isLaneReady(state, previous) &&
+      before.stagingOta === null &&
+      after.stagingOta !== null
+    ) {
       const expected = clone(previous);
       expected.preview!.platforms[platform].stagingOta = after.stagingOta;
       expected.preview!.status = hasAllPreviewFacts(expected)
@@ -81,6 +101,7 @@ export function getPreviewUpdateKind(
   }
 
   if (
+    isLaneReady(state, previous) &&
     previous.preview.status === 'smoke_pending' &&
     next.preview.status === 'approved'
   ) {

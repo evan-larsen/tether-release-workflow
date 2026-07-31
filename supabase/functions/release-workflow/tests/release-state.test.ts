@@ -17,6 +17,46 @@ const initialState: ReleaseState = {
   releases: [],
 };
 
+function preparedCandidateState(): ReleaseState {
+  const time = '2026-07-28T00:00:00.000Z';
+  return {
+    ...initialState,
+    releases: [
+      {
+        id: 'candidate',
+        version: '1.9.0',
+        preparation: {
+          preparationId: 'prep',
+          treeHash: 'a'.repeat(40),
+          preparedCommit: 'b'.repeat(40),
+          marketingVersion: '1.9.0',
+          nativeGeneration: 'native-1',
+          preparedAt: time,
+          status: 'prepared',
+        },
+        productionCommit: null,
+        native: 'native-1',
+        nativeFloorVersion: '1.9.0',
+        preview: {
+          status: 'required',
+          platforms: {
+            ios: { attempts: [], stagingBase: null, stagingOta: null },
+            android: { attempts: [], stagingBase: null, stagingOta: null },
+          },
+          smokeApprovedAt: null,
+        },
+        createdAt: time,
+        releaseType: 'store',
+        status: 'in_progress',
+        platforms: {
+          ios: { attempts: [], ota: null },
+          android: { attempts: [], ota: null },
+        },
+      },
+    ],
+  };
+}
+
 function createRepository(): ReleaseStateRepository {
   let record: ReleaseStateRecord = {
     revision: 0,
@@ -75,13 +115,7 @@ Deno.test('gets the seeded release state', async () => {
 
 Deno.test('updates state and increments the revision', async () => {
   const dependencies = createDependencies();
-  const nextState = {
-    ...initialState,
-    stagingLane: {
-      activeNative: null,
-      resetTargetNative: 'native-1',
-    },
-  };
+  const nextState = preparedCandidateState();
   const response = await callAction(dependencies, {
     action: 'update_release_state',
     expectedRevision: 0,
@@ -97,13 +131,7 @@ Deno.test('updates state and increments the revision', async () => {
 
 Deno.test('returns 409 for a stale expected revision', async () => {
   const dependencies = createDependencies();
-  const nextState = {
-    ...initialState,
-    stagingLane: {
-      activeNative: null,
-      resetTargetNative: 'native-1',
-    },
-  };
+  const nextState = preparedCandidateState();
   await callAction(dependencies, {
     action: 'update_release_state',
     expectedRevision: 0,

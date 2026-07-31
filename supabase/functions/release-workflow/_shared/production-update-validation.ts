@@ -5,6 +5,11 @@ import type {
   StoreReleaseRecord,
 } from './types.ts';
 import { clone, equal } from './update-validation-utils.ts';
+import {
+  getActivePreparationId,
+  hasKnownPreparation,
+  hasPlatformPublicProgress,
+} from './platform-preparation-validation.ts';
 
 const PLATFORMS: Platform[] = ['ios', 'android'];
 
@@ -30,6 +35,8 @@ export function getProductionUpdateKind(
   next: StoreReleaseRecord,
 ): string | null {
   for (const platform of PLATFORMS) {
+    const sourceRelease = previous as unknown as Record<string, unknown>;
+    if (hasPlatformPublicProgress(sourceRelease, platform)) continue;
     const before = previous.platforms[platform];
     const after = next.platforms[platform];
     if (after.attempts.length === before.attempts.length + 1) {
@@ -38,6 +45,13 @@ export function getProductionUpdateKind(
       expected.platforms[platform].attempts.push(attempt);
       if (
         ['requested', 'failed'].includes(attempt.status) &&
+        attempt.sourcePreparationId ===
+          getActivePreparationId(sourceRelease, platform) &&
+        hasKnownPreparation(
+          sourceRelease,
+          platform,
+          attempt.sourcePreparationId,
+        ) &&
         attempt.submissions.length === 0 &&
         attempt.storeStatus === null &&
         attempt.base === null &&

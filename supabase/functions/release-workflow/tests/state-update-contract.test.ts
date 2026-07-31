@@ -149,9 +149,51 @@ function completeCandidate(): StoreReleaseRecord {
   return release;
 }
 
+function stagingLanePair(id: string): [unknown, unknown] | null {
+  const candidate = previewCandidate();
+  const unassigned = { ...emptyV2('native-1'), releases: [candidate] };
+  const foreign: ReleaseState = {
+    ...emptyV2('native-1'),
+    stagingLane: { activeNative: 'native-1', resetTargetNative: null },
+    releases: [candidate],
+  };
+  const pending: ReleaseState = {
+    ...emptyV2('native-1'),
+    stagingLane: {
+      activeNative: 'native-1',
+      resetTargetNative: 'native-2',
+      resetProgress: { ios: 'pending', android: 'pending' },
+    },
+    releases: [candidate],
+  };
+  const iosCleared = structuredClone(pending);
+  iosCleared.stagingLane.resetProgress!.ios = 'cleared_and_verified';
+  const complete = structuredClone(pending);
+  complete.stagingLane.resetProgress = {
+    ios: 'cleared_and_verified',
+    android: 'cleared_and_verified',
+  };
+  const claimed: ReleaseState = {
+    ...emptyV2('native-1'),
+    stagingLane: { activeNative: 'native-2', resetTargetNative: null },
+    releases: [candidate],
+  };
+  const pairs: Record<string, [unknown, unknown]> = {
+    'staging-lane-initial-claim': [unassigned, claimed],
+    'staging-lane-reset-begin': [foreign, pending],
+    'staging-lane-ios-clear': [pending, iosCleared],
+    'staging-lane-reset-complete': [complete, claimed],
+    'staging-lane-direct-swap': [foreign, claimed],
+    'staging-lane-early-complete': [pending, claimed],
+  };
+  return pairs[id] ?? null;
+}
+
 function buildPair(id: string): [unknown, unknown] {
   const preparationPair = buildPreparationContractPair(id);
   if (preparationPair) return preparationPair;
+  const stagingPair = stagingLanePair(id);
+  if (stagingPair) return stagingPair;
   const established = emptyV2('native-1');
   if (id === 'illegal-current-native-jump')
     return [emptyV2(), emptyV2('native-1')];
@@ -235,7 +277,11 @@ function buildPair(id: string): [unknown, unknown] {
     return [previous, next];
   }
   if (id === 'invalid-staging-lane-ownership') {
-    const previous = { ...established, releases: [previewCandidate()] };
+    const previous = {
+      ...established,
+      stagingLane: { activeNative: 'native-1', resetTargetNative: null },
+      releases: [previewCandidate()],
+    };
     const next = structuredClone(previous);
     next.releases[0].preview!.status = 'building';
     next.releases[0].preview!.platforms.ios.attempts.push({
@@ -266,6 +312,23 @@ function buildPair(id: string): [unknown, unknown] {
     return [{ stateVersion: 1, currentNative: null, releases: [] }, emptyV2()];
   return [{ stateVersion: 1, currentNative: null, releases: [{}] }, emptyV2()];
 }
+
+Deno.test(
+  'unassigned Staging permits only a Preview build request without lane mutation',
+  () => {
+    const previous = { ...emptyV2('native-1'), releases: [previewCandidate()] };
+    const next = structuredClone(previous);
+    next.releases[0].preview!.status = 'building';
+    next.releases[0].preview!.platforms.ios.attempts.push({
+      easBuildId: 'ios-preview-unassigned',
+      appVersion: '1.9.0',
+      buildNumber: '1',
+      profile: 'preview',
+      status: 'requested',
+    });
+    assertEquals(validateReleaseStateUpdate(previous, next), true);
+  },
+);
 
 for (const contractCase of corpus.cases) {
   Deno.test(`state update contract: ${contractCase.id}`, () => {

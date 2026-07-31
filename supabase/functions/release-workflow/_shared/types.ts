@@ -57,6 +57,7 @@ export interface ReleasePreparation {
 }
 
 export interface ProductionAttempt extends PreviewBuildAttempt {
+  sourcePreparationId?: string;
   submissions: Array<{
     id: string;
     status: 'pending' | 'submitted' | 'failed' | 'unknown';
@@ -71,6 +72,15 @@ export interface ProductionAttempt extends PreviewBuildAttempt {
     staging: RevoPushRecord | null;
     production: RevoPushRecord | null;
   } | null;
+}
+
+export interface PlatformPreparation {
+  preparationId: string;
+  platform: Platform;
+  treeHash: string;
+  preparedCommit: string;
+  preparedAt: string;
+  status: 'prepared' | 'superseded';
 }
 
 export interface ReleasePlatform {
@@ -95,6 +105,7 @@ export interface StoreReleaseRecord extends ReleaseRecordBase {
   productionCommit: string | null;
   nativeFloorVersion: string | null;
   preview: PreviewRecord | null;
+  platformPreparations?: PlatformPreparation[];
   releaseType: 'store';
 }
 
@@ -105,12 +116,15 @@ export interface OtaReleaseRecord extends ReleaseRecordBase {
 
 export type ReleaseRecord = StoreReleaseRecord | OtaReleaseRecord;
 
+export type StagingResetStatus = 'pending' | 'cleared_and_verified';
+
 export interface ReleaseState {
   stateVersion: 2;
   currentNative: string | null;
   stagingLane: {
     activeNative: string | null;
     resetTargetNative: string | null;
+    resetProgress?: Record<Platform, StagingResetStatus>;
   };
   releases: ReleaseRecord[];
 }

@@ -6,6 +6,7 @@ import {
 } from './production-update-validation.ts';
 import { isExactEmptyV1 } from './state-migration.ts';
 import { getNextNative, isReleaseState } from './state-validation.ts';
+import { getPlatformCorrectionUpdateKind } from './platform-correction-update-validation.ts';
 import type {
   ReleaseRecord,
   ReleaseState,
@@ -111,23 +112,61 @@ function isStagingLaneUpdate(
     return false;
   const before = previous.stagingLane;
   const after = next.stagingLane;
+  const target = getNextNative(previous.currentNative);
+  const hasCandidate = previous.releases.some(
+    (release) =>
+      release.releaseType === 'store' &&
+      release.status === 'in_progress' &&
+      release.nativeFloorVersion !== null &&
+      release.native === target,
+  );
+  const pending = (progress: typeof after.resetProgress | undefined) =>
+    progress?.ios === 'pending' && progress.android === 'pending';
+  const oneClear = (
+    progress: typeof after.resetProgress | undefined,
+    prior: typeof before.resetProgress | undefined,
+  ) =>
+    (['ios', 'android'] as const).some(
+      (platform) =>
+        prior?.[platform] === 'pending' &&
+        progress?.[platform] === 'cleared_and_verified' &&
+        (['ios', 'android'] as const).every(
+          (other) => other === platform || progress?.[other] === prior[other],
+        ),
+    );
   if (
+    before.activeNative === null &&
     before.resetTargetNative === null &&
-    after.resetTargetNative === getNextNative(previous.currentNative) &&
-    before.activeNative === after.activeNative
+    after.activeNative === target &&
+    after.resetTargetNative === null &&
+    !Object.hasOwn(after, 'resetProgress') &&
+    hasCandidate
+  )
+    return true;
+  if (
+    before.activeNative !== null &&
+    before.resetTargetNative === null &&
+    after.resetTargetNative === target &&
+    before.activeNative === after.activeNative &&
+    pending(after.resetProgress) &&
+    hasCandidate
+  )
+    return true;
+  if (
+    before.resetTargetNative === target &&
+    after.resetTargetNative === target &&
+    before.activeNative === after.activeNative &&
+    oneClear(after.resetProgress, before.resetProgress)
   )
     return true;
   return (
-    before.resetTargetNative !== null &&
-    after.activeNative === before.resetTargetNative &&
+    before.resetTargetNative === target &&
+    after.activeNative === target &&
     after.resetTargetNative === null &&
-    previous.releases.some(
-      (release) =>
-        release.releaseType === 'store' &&
-        release.status === 'in_progress' &&
-        release.nativeFloorVersion !== null &&
-        release.native === after.activeNative,
-    )
+    before.resetProgress?.ios === 'cleared_and_verified' &&
+    before.resetProgress?.android === 'cleared_and_verified' &&
+    !Object.hasOwn(after, 'resetProgress') &&
+    hasCandidate
   );
 }
 
@@ -199,6 +238,10 @@ export function validateReleaseStateUpdate(
     newRelease.releaseType === 'store'
   ) {
     return Boolean(
+      getPlatformCorrectionUpdateKind(
+        oldRelease as unknown as Record<string, unknown>,
+        newRelease as unknown as Record<string, unknown>,
+      ) ||
       getPreviewUpdateKind(oldRelease, newRelease, next) ||
       getReleaseUpdateKind(oldRelease, newRelease),
     );

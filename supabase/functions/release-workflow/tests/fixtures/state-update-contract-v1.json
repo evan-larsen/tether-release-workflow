@@ -109,6 +109,60 @@
       "previous": "established-native-1",
       "next": "prepared-release-and-current-native-jump",
       "expected": false
+    },
+    {
+      "id": "one-public-platform-correction",
+      "previous": "partial-public-release",
+      "next": "scoped-correction",
+      "expected": true
+    },
+    {
+      "id": "forged-public-platform-correction",
+      "previous": "partial-public-release",
+      "next": "wrong-scope-correction",
+      "expected": false
+    },
+    {
+      "id": "wrong-preparation-build-link",
+      "previous": "scoped-correction",
+      "next": "wrong-source-build",
+      "expected": false
+    },
+    {
+      "id": "staging-lane-initial-claim",
+      "previous": "unassigned-preview-candidate",
+      "next": "claimed-preview-candidate",
+      "expected": true
+    },
+    {
+      "id": "staging-lane-reset-begin",
+      "previous": "foreign-active-preview-candidate",
+      "next": "reset-pending-preview-candidate",
+      "expected": true
+    },
+    {
+      "id": "staging-lane-ios-clear",
+      "previous": "reset-pending-preview-candidate",
+      "next": "reset-ios-cleared-preview-candidate",
+      "expected": true
+    },
+    {
+      "id": "staging-lane-reset-complete",
+      "previous": "reset-both-cleared-preview-candidate",
+      "next": "claimed-preview-candidate",
+      "expected": true
+    },
+    {
+      "id": "staging-lane-direct-swap",
+      "previous": "foreign-active-preview-candidate",
+      "next": "claimed-preview-candidate",
+      "expected": false
+    },
+    {
+      "id": "staging-lane-early-complete",
+      "previous": "reset-pending-preview-candidate",
+      "next": "claimed-preview-candidate",
+      "expected": false
     }
   ]
 }
