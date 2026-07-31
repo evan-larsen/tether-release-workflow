@@ -7,6 +7,7 @@ import {
   isStagingLaneTarget,
 } from './staging-lane-validation.ts';
 import type { ReleaseState } from './types.ts';
+import { isRollbackRecord } from './rollback-validation.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
 
@@ -206,12 +207,21 @@ export function isReleaseState(value: unknown): value is ReleaseState {
       'currentNative',
       'stagingLane',
       'releases',
+      ...(Object.hasOwn(value as object, 'rollbacks') ? ['rollbacks'] : []),
     ]) ||
     value.stateVersion !== 2 ||
     (value.currentNative !== null && !isNative(value.currentNative)) ||
     !isStagingLane(value.stagingLane) ||
     !Array.isArray(value.releases) ||
     !value.releases.every(isRelease)
+  )
+    return false;
+  if (
+    Object.hasOwn(value as object, 'rollbacks') &&
+    (!Array.isArray((value as Record<string, unknown>).rollbacks) ||
+      !((value as Record<string, unknown>).rollbacks as unknown[]).every(
+        isRollbackRecord,
+      ))
   )
     return false;
   const releases = value.releases as Array<Record<string, unknown>>;

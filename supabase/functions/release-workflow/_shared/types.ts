@@ -46,6 +46,23 @@ export interface StagingOtaFact extends RevoPushRecord {
   status: 'published' | 'approved';
 }
 
+export interface ProductionOtaRecord {
+  status: 'intent' | 'retryable' | 'unknown' | 'promoted';
+  platform: Platform;
+  deployment: string;
+  sourceReleaseId: string;
+  preparationId: string;
+  treeHash: string;
+  gitCommit: string;
+  targetRange: string;
+  stagingLabel: string;
+  stagingPackageHash: string;
+  label: string | null;
+  packageHash: string | null;
+  releaseMethod: 'Promote' | null;
+  originalLabel: string | null;
+}
+
 export interface BaseRegistration {
   deployment: 'staging' | 'production';
   status: 'intent' | 'retryable' | 'unknown';
@@ -118,7 +135,7 @@ export interface ReleasePlatform {
   attempts: ProductionAttempt[];
   ota: {
     staging: StagingOtaIntent | StagingOtaFact | null;
-    production: RevoPushRecord | null;
+    production: ProductionOtaRecord | null;
   } | null;
 }
 
@@ -192,6 +209,29 @@ export interface ReleaseState {
     resetProgress?: Record<Platform, StagingResetStatus>;
   };
   releases: ReleaseRecord[];
+  rollbacks?: RollbackRecord[];
+}
+export interface RollbackRecord {
+  id: string;
+  native: string;
+  targetRange: string;
+  createdAt: string;
+  status: 'in_progress' | 'complete';
+  platforms: Record<
+    Platform,
+    {
+      status: 'intent' | 'retryable' | 'unknown' | 'rolled_back';
+      platform: Platform;
+      deployment: string;
+      originalLabel: string;
+      originalPackageHash: string;
+      targetRange: string;
+      label: string | null;
+      packageHash: string | null;
+      releaseMethod: 'Rollback' | null;
+      originalLabelResult: string | null;
+    }
+  >;
 }
 
 export interface GetReleaseStateRequest {

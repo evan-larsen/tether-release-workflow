@@ -16,6 +16,65 @@ import type {
 } from './types.ts';
 import { equal } from './update-validation-utils.ts';
 
+function isRollbackUpdate(previous: ReleaseState, next: ReleaseState): boolean {
+  if (
+    !equal(previous.releases, next.releases) ||
+    !equal(previous.stagingLane, next.stagingLane) ||
+    previous.currentNative !== next.currentNative
+  )
+    return false;
+  const before = previous.rollbacks ?? [];
+  const after = next.rollbacks ?? [];
+  if (after.length === before.length + 1) {
+    const item = after.at(-1)!;
+    return (
+      item.native === previous.currentNative &&
+      item.status === 'in_progress' &&
+      (['ios', 'android'] as const).every(
+        (p) => item.platforms[p].status === 'intent',
+      )
+    );
+  }
+  if (after.length !== before.length) return false;
+  const changed = before
+    .map((item, index) => (equal(item, after[index]) ? -1 : index))
+    .filter((i) => i >= 0);
+  if (changed.length !== 1) return false;
+  const old = before[changed[0]];
+  const newer = after[changed[0]];
+  if (old.id !== newer.id || old.native !== previous.currentNative)
+    return false;
+  for (const platform of ['ios', 'android'] as const) {
+    const a = old.platforms[platform],
+      b = newer.platforms[platform];
+    if (equal(a, b)) continue;
+    if (!(
+      ['intent', 'retryable', 'unknown'].includes(a.status) &&
+      ['intent', 'retryable', 'unknown', 'rolled_back'].includes(b.status)
+    ))
+      return false;
+    if (a.status === 'unknown' && b.status !== 'rolled_back') return false;
+    if (
+      b.status === 'rolled_back' &&
+      (b.releaseMethod !== 'Rollback' ||
+        b.originalLabelResult !== a.originalLabel)
+    )
+      return false;
+    const other = platform === 'ios' ? 'android' : 'ios';
+    if (!equal(old.platforms[other], newer.platforms[other])) return false;
+    if (
+      newer.status === 'complete' &&
+      !(
+        newer.platforms.ios.status === 'rolled_back' &&
+        newer.platforms.android.status === 'rolled_back'
+      )
+    )
+      return false;
+    return true;
+  }
+  return false;
+}
+
 function hasEmptyPlatforms(release: ReleaseRecord): boolean {
   if (release.releaseType === 'adopted_baseline') return false;
   return (['ios', 'android'] as const).every((platform) => {
@@ -233,6 +292,7 @@ export function validateReleaseStateUpdate(
     return false;
   if (isAppendOrSupersession(previous, next)) return true;
   if (isStagingLaneUpdate(previous, next)) return true;
+  if (isRollbackUpdate(previous, next)) return true;
   const index = getOnlyChangedRelease(previous, next);
   if (index === null || !equal(previous.stagingLane, next.stagingLane))
     return false;

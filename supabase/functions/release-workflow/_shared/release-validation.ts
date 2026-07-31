@@ -1,4 +1,5 @@
-import { isPreview, isRevoPushFact } from './preview-validation.ts';
+import { isPreview } from './preview-validation.ts';
+import type { OtaReleaseRecord, Platform } from './types.ts';
 import { isProductionAttempt } from './production-attempt-validation.ts';
 import {
   hasExactKeys,
@@ -14,6 +15,7 @@ import {
   isStagingOtaFact,
   isTargetRange,
 } from './staging-ota-validation.ts';
+import { isProductionOta } from './production-ota-validation.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
 function isOta(
@@ -26,7 +28,12 @@ function isOta(
   if (!isStagingOtaFact(value.staging)) return value.production === null;
   return (
     value.production === null ||
-    (value.staging.status === 'approved' && isRevoPushFact(value.production))
+    (value.staging.status === 'approved' &&
+      isProductionOta(
+        value.production,
+        platform as Platform,
+        release as unknown as OtaReleaseRecord,
+      ))
   );
 }
 function isPlatformRelease(
@@ -96,7 +103,11 @@ function hasCompleteProduction(value: Record<string, unknown>): boolean {
             'registered',
         ),
       )
-    : PLATFORMS.every((platform) => platforms[platform].ota.production);
+    : PLATFORMS.every(
+        (platform) =>
+          (platforms[platform].ota.production as Record<string, unknown> | null)
+            ?.status === 'promoted',
+      );
 }
 
 export function isRelease(value: unknown): boolean {

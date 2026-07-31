@@ -18,6 +18,7 @@ import {
   getStagingOtaDescription,
   isStagingOtaIntent,
 } from './staging-ota-validation.ts';
+import { buildProductionOtaIntent } from './production-ota-validation.ts';
 
 const PLATFORMS: Platform[] = ['ios', 'android'];
 
@@ -205,28 +206,58 @@ function getOtaUpdateKind(
       expected.platforms[platform].ota!.staging = after.staging;
       if (equal(expected, next)) return 'staging_ota_published';
     }
+  }
+  if (
+    PLATFORMS.every(
+      (platform) =>
+        previous.platforms[platform].ota!.staging?.status === 'published',
+    ) &&
+    PLATFORMS.every(
+      (platform) =>
+        next.platforms[platform].ota!.staging?.status === 'approved',
+    )
+  ) {
+    const expected = clone(previous);
+    for (const platform of PLATFORMS)
+      expected.platforms[platform].ota!.staging!.status = 'approved';
+    if (equal(expected, next)) return 'staging_ota_approved';
+  }
+  for (const platform of PLATFORMS) {
+    const before = previous.platforms[platform].ota!.production;
+    const after = next.platforms[platform].ota!.production;
     if (
-      before.staging?.status === 'published' &&
-      after.staging?.status === 'approved'
+      [null, 'retryable'].includes(before?.status ?? null) &&
+      after?.status === 'intent'
     ) {
       const expected = clone(previous);
-      expected.platforms[platform].ota!.staging!.status = 'approved';
-      if (equal(expected, next)) return 'staging_ota_approved';
+      expected.platforms[platform].ota!.production = buildProductionOtaIntent(
+        expected,
+        platform,
+      );
+      if (equal(expected, next)) return 'production_ota_promote_intent';
     }
     if (
-      before.staging?.status === 'approved' &&
-      before.production === null &&
-      after.production !== null
+      before?.status === 'intent' &&
+      ['retryable', 'unknown'].includes(after?.status ?? '')
     ) {
       const expected = clone(previous);
-      expected.platforms[platform].ota!.production = after.production;
+      expected.platforms[platform].ota!.production!.status = after!.status;
+      if (equal(expected, next)) return 'production_ota_promote_outcome';
+    }
+    if (
+      ['intent', 'retryable', 'unknown'].includes(before?.status ?? '') &&
+      after?.status === 'promoted'
+    ) {
+      const expected = clone(previous);
+      expected.platforms[platform].ota!.production = after;
       if (
         PLATFORMS.every(
-          (name) => expected.platforms[name].ota!.production !== null,
+          (name) =>
+            expected.platforms[name].ota!.production?.status === 'promoted',
         )
       )
         expected.status = 'complete';
-      if (equal(expected, next)) return 'production_ota_saved';
+      if (equal(expected, next)) return 'production_ota_promoted';
     }
   }
   return null;
