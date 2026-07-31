@@ -1,0 +1,38 @@
+{
+  "baseIntent": {
+    "status": "intent",
+    "platform": "ios",
+    "deployment": "staging",
+    "candidateId": "preview-contract",
+    "preparationId": "preview-preparation",
+    "treeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "preparedCommit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "native": "native-2",
+    "nativeFloorVersion": "1.9.0",
+    "easBuildId": "ios-preview-build",
+    "appVersion": "1.9.0",
+    "buildNumber": "51",
+    "label": null,
+    "packageHash": null,
+    "releaseMethod": null
+  },
+  "otaIntent": {
+    "status": "intent",
+    "platform": "ios",
+    "deployment": "staging",
+    "candidateId": "preview-contract",
+    "preparationId": "preview-preparation",
+    "treeHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "preparedCommit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "native": "native-2",
+    "nativeFloorVersion": "1.9.0",
+    "targetRange": ">=1.9.0",
+    "baseEasBuildId": "ios-preview-build",
+    "baseLabel": "ios-base",
+    "basePackageHash": "ios-base-hash",
+    "description": "tether-preview-staging-ota:preview-contract:ios:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "label": null,
+    "packageHash": null,
+    "releaseMethod": null
+  }
+}

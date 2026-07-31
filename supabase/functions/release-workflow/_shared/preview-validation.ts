@@ -3,6 +3,14 @@ import {
   isNonEmptyString,
   isTimestamp,
 } from './state-validation-primitives.ts';
+import {
+  isLegacyPreviewBase,
+  isLegacyPreviewOta,
+  isPreviewBaseOperation,
+  isPreviewOtaOperation,
+  isVerifiedPreviewBase,
+  isVerifiedPreviewOta,
+} from './preview-staging-validation.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
 
@@ -31,7 +39,11 @@ function isPreviewAttempt(value: unknown): boolean {
   );
 }
 
-function isPreviewPlatform(value: unknown): boolean {
+function isPreviewPlatform(
+  value: unknown,
+  platform: string,
+  release: Record<string, unknown>,
+): boolean {
   if (
     !hasExactKeys(value, ['attempts', 'stagingBase', 'stagingOta']) ||
     !Array.isArray(value.attempts) ||
@@ -47,29 +59,24 @@ function isPreviewPlatform(value: unknown): boolean {
       ),
     ).size !== value.attempts.length ||
     (value.stagingBase !== null &&
-      (!hasExactKeys(value.stagingBase, [
-        'easBuildId',
-        'label',
-        'packageHash',
-      ]) ||
-        !isNonEmptyString(value.stagingBase.easBuildId) ||
-        !isNonEmptyString(value.stagingBase.label) ||
-        !isNonEmptyString(value.stagingBase.packageHash) ||
-        (value.attempts.at(-1) as Record<string, unknown> | undefined)
-          ?.easBuildId !== value.stagingBase.easBuildId ||
-        (value.attempts.at(-1) as Record<string, unknown> | undefined)
-          ?.status !== 'succeeded')) ||
+      !isLegacyPreviewBase(
+        value.stagingBase,
+        value.attempts as Array<Record<string, unknown>>,
+      ) &&
+      !isPreviewBaseOperation(
+        value.stagingBase,
+        platform,
+        release,
+        value.attempts as Array<Record<string, unknown>>,
+      )) ||
     (value.stagingOta !== null &&
-      (!hasExactKeys(value.stagingOta, [
-        'baseEasBuildId',
-        'label',
-        'packageHash',
-      ]) ||
-        !isNonEmptyString(value.stagingOta.baseEasBuildId) ||
-        !isNonEmptyString(value.stagingOta.label) ||
-        !isNonEmptyString(value.stagingOta.packageHash) ||
-        (value.stagingBase as Record<string, unknown> | null)?.easBuildId !==
-          value.stagingOta.baseEasBuildId))
+      !isLegacyPreviewOta(value.stagingOta, value.stagingBase) &&
+      !isPreviewOtaOperation(
+        value.stagingOta,
+        platform,
+        release,
+        value.stagingBase,
+      ))
   )
     return false;
   return true;
@@ -83,13 +90,16 @@ function hasAllFacts(value: Record<string, unknown>): boolean {
       (record.attempts as Array<Record<string, unknown>>).some(
         (attempt) => attempt.status === 'succeeded',
       ) &&
-      record.stagingBase !== null &&
-      record.stagingOta !== null
+      isVerifiedPreviewBase(record.stagingBase) &&
+      isVerifiedPreviewOta(record.stagingOta)
     );
   });
 }
 
-export function isPreview(value: unknown): boolean {
+export function isPreview(
+  value: unknown,
+  release: Record<string, unknown>,
+): boolean {
   if (
     !hasExactKeys(value, ['status', 'platforms', 'smokeApprovedAt']) ||
     !['required', 'building', 'smoke_pending', 'approved'].includes(
@@ -100,7 +110,11 @@ export function isPreview(value: unknown): boolean {
   )
     return false;
   const platforms = value.platforms as Record<string, unknown>;
-  if (!PLATFORMS.every((platform) => isPreviewPlatform(platforms[platform])))
+  if (
+    !PLATFORMS.every((platform) =>
+      isPreviewPlatform(platforms[platform], platform, release),
+    )
+  )
     return false;
   const allFacts = hasAllFacts(value);
   if (value.status === 'required') {

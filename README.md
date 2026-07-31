@@ -199,6 +199,21 @@ supabase start
 npm run supabase:serve
 ```
 
+## Strict app/Edge contract parity
+
+Keep this checkout beside `../tether-app`, or use the app checkout's explicit
+path command. The strict check compares the versioned state-update and Preview
+Staging fixture bytes, and fails for a missing, unreadable, malformed, or
+divergent peer fixture:
+
+```sh
+npm run contract:parity
+# From tether-app when this checkout is elsewhere:
+npm run release-contract:parity -- --edge-root C:\path\to\tether-release-workflow
+```
+
+Do not make a copied fallback fixture to bypass this check.
+
 Call the local function with a token from your local-only `.env.local`:
 
 ```sh

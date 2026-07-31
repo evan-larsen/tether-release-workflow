@@ -217,7 +217,7 @@ function buildPair(id: string): [unknown, unknown] {
     });
     return [previous, next];
   }
-  if (id === 'invalid-staging-lane-ownership') {
+  if (id === 'foreign-staging-preflight') {
     const previous = {
       ...established,
       stagingLane: { activeNative: 'native-1', resetTargetNative: null },

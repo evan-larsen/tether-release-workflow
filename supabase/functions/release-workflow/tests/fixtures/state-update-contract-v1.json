@@ -45,10 +45,10 @@
       "expected": false
     },
     {
-      "id": "invalid-staging-lane-ownership",
+      "id": "foreign-staging-preflight",
       "previous": "preview-required",
       "next": "preview-build-with-wrong-lane",
-      "expected": false
+      "expected": true
     },
     {
       "id": "approved-non-public-preview-supersession",

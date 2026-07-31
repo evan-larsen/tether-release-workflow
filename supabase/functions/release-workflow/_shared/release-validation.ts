@@ -177,7 +177,7 @@ export function isRelease(value: unknown): boolean {
       !(
         (release.nativeFloorVersion === null && release.preview === null) ||
         (release.nativeFloorVersion === release.version &&
-          isPreview(release.preview) &&
+          isPreview(release.preview, release) &&
           PLATFORMS.every((platform) =>
             (
               (release.preview as Record<string, unknown>).platforms as Record<

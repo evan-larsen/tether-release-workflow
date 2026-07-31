@@ -7,16 +7,18 @@ export const STORE_STATUS_VALUES = [
   'not_found',
   'unknown',
 ] as const;
+export type {
+  PreviewBuildAttempt,
+  PreviewRecord,
+  PreviewStagingBaseOperation,
+  PreviewStagingOtaOperation,
+} from './preview-types.ts';
+export type { StoreStatusRequest } from './store-status-types.ts';
+import type { PreviewBuildAttempt, PreviewRecord } from './preview-types.ts';
+import type { StoreStatusRequest } from './store-status-types.ts';
 
 export type Platform = (typeof PLATFORM_VALUES)[number];
 export type StoreStatus = (typeof STORE_STATUS_VALUES)[number];
-
-export interface StoreStatusRequest {
-  action: 'get_store_build_status';
-  platform: Platform;
-  appVersion: string;
-  buildNumber: string;
-}
 
 export type BuildStatus = 'requested' | 'succeeded' | 'failed';
 export type ReleaseStatus =
@@ -76,26 +78,6 @@ export interface StoreBase {
   staging: RevoPushRecord | null;
   production: RevoPushRecord | null;
   registration?: BaseRegistration;
-}
-
-export interface PreviewBuildAttempt {
-  easBuildId: string;
-  appVersion: string;
-  buildNumber: string;
-  profile: string;
-  status: BuildStatus;
-}
-
-export interface PreviewPlatform {
-  attempts: PreviewBuildAttempt[];
-  stagingBase: (RevoPushRecord & { easBuildId: string }) | null;
-  stagingOta: (RevoPushRecord & { baseEasBuildId: string }) | null;
-}
-
-export interface PreviewRecord {
-  status: 'required' | 'building' | 'smoke_pending' | 'approved';
-  platforms: Record<Platform, PreviewPlatform>;
-  smokeApprovedAt: string | null;
 }
 
 export interface ReleasePreparation {
