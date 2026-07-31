@@ -46,6 +46,7 @@ export interface StagingOtaFact extends RevoPushRecord {
   targetRange: string;
   description: string;
   status: 'published' | 'approved';
+  mandatory?: boolean;
 }
 
 export interface ProductionOtaRecord {
@@ -63,6 +64,7 @@ export interface ProductionOtaRecord {
   packageHash: string | null;
   releaseMethod: 'Promote' | null;
   originalLabel: string | null;
+  mandatory?: boolean;
 }
 
 export interface BaseRegistration {
@@ -191,6 +193,17 @@ export interface OtaReleaseRecord extends ReleaseRecordBase {
   gitCommit: string;
   targetRange: string;
   releaseType: 'ota';
+  emergency?: {
+    kind: 'emergency_ota';
+    mode: 'normal' | 'urgent';
+    mandatory: boolean;
+    installStrategy: 'next_restart' | 'immediate';
+    jsOnlyAttestedAt: string;
+    sourceCommit: string;
+    productionCommit: string | null;
+    currentNative: string;
+    nativeFloorVersion: string;
+  };
 }
 
 export interface AdoptedBaselineArtifact {

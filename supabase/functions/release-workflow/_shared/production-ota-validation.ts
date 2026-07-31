@@ -22,6 +22,7 @@ export function isProductionOta(
   release: OtaReleaseRecord,
 ): value is ProductionOtaRecord {
   if (value === null) return true;
+  const hasMandatory = Object.hasOwn(value as object, 'mandatory');
   if (
     !hasExactKeys(value, [
       'status',
@@ -38,6 +39,7 @@ export function isProductionOta(
       'packageHash',
       'releaseMethod',
       'originalLabel',
+      ...(hasMandatory ? ['mandatory'] : []),
     ])
   )
     return false;
@@ -65,6 +67,8 @@ export function isProductionOta(
     item.treeHash === release.treeHash &&
     item.gitCommit === release.gitCommit &&
     item.targetRange === release.targetRange &&
+    (!hasMandatory || typeof item.mandatory === 'boolean') &&
+    (!release.emergency || item.mandatory === release.emergency.mandatory) &&
     (promoted
       ? isRevoPushFact({ label: item.label, packageHash: item.packageHash }) &&
         item.releaseMethod === 'Promote' &&

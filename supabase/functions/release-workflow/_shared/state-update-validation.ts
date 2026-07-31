@@ -8,6 +8,7 @@ import {
   getPlatformCorrectionUpdateKind,
 } from './platform-correction-update-validation.ts';
 import { isValidInitialOta } from './ota-source-validation.ts';
+import { isEmergencyOta } from './emergency-ota-validation.ts';
 import type {
   ReleaseRecord,
   ReleaseState,
@@ -97,7 +98,14 @@ function isInitialRelease(
     return (
       previous.currentNative !== null &&
       release.native === previous.currentNative &&
-      isValidInitialOta(previous, release)
+      (release.emergency
+        ? isEmergencyOta(
+            release.emergency,
+            release as unknown as Record<string, unknown>,
+          ) &&
+          previous.stagingLane.activeNative === release.native &&
+          previous.stagingLane.resetTargetNative === null
+        : isValidInitialOta(previous, release))
     );
   if (release.native === previous.currentNative)
     return (
@@ -278,6 +286,22 @@ function isCurrentNativeCompletion(
   );
 }
 
+function isEmergencySourceAttachment(
+  oldRelease: ReleaseRecord,
+  newRelease: ReleaseRecord,
+): boolean {
+  if (
+    oldRelease.releaseType !== 'ota' ||
+    newRelease.releaseType !== 'ota' ||
+    oldRelease.emergency?.productionCommit !== null ||
+    newRelease.emergency?.productionCommit === null
+  )
+    return false;
+  const expected = structuredClone(oldRelease);
+  expected.emergency!.productionCommit = newRelease.emergency!.productionCommit;
+  return equal(expected, newRelease);
+}
+
 export function validateReleaseStateUpdate(
   previous: unknown,
   next: unknown,
@@ -307,6 +331,7 @@ export function validateReleaseStateUpdate(
 
   const oldRelease = previous.releases[index];
   const newRelease = next.releases[index];
+  if (isEmergencySourceAttachment(oldRelease, newRelease)) return true;
   if (
     oldRelease.releaseType === 'store' &&
     newRelease.releaseType === 'store'

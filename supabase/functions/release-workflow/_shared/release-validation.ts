@@ -17,6 +17,7 @@ import {
 } from './staging-ota-validation.ts';
 import { isProductionOta } from './production-ota-validation.ts';
 import { isProductionProvisioning } from './production-provisioning-validation.ts';
+import { isEmergencyOta } from './emergency-ota-validation.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
 function isOta(
@@ -213,6 +214,7 @@ export function isRelease(value: unknown): boolean {
       'releaseType',
       'status',
       'platforms',
+      ...(Object.hasOwn(release, 'emergency') ? ['emergency'] : []),
       ...(hasSupersededReason ? ['supersededReason'] : []),
     ]) ||
     !isNonEmptyString(release.sourceReleaseId) ||
@@ -221,7 +223,9 @@ export function isRelease(value: unknown): boolean {
     !/^[0-9a-f]{40}$/i.test(release.treeHash) ||
     typeof release.gitCommit !== 'string' ||
     !/^[0-9a-f]{40}$/i.test(release.gitCommit) ||
-    !isTargetRange(release.targetRange)
+    !isTargetRange(release.targetRange) ||
+    (Object.hasOwn(release, 'emergency') &&
+      !isEmergencyOta(release.emergency, release))
   )
     return false;
   return release.status !== 'complete' || hasCompleteProduction(release);

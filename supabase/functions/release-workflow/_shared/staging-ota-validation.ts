@@ -62,6 +62,7 @@ export function isStagingOtaIntent(
 }
 
 export function isStagingOtaFact(value: unknown): value is StagingOtaFact {
+  const hasMandatory = Object.hasOwn(value as object, 'mandatory');
   if (
     !hasExactKeys(value, [
       'label',
@@ -70,6 +71,7 @@ export function isStagingOtaFact(value: unknown): value is StagingOtaFact {
       'targetRange',
       'description',
       'status',
+      ...(hasMandatory ? ['mandatory'] : []),
     ])
   )
     return false;
@@ -78,6 +80,7 @@ export function isStagingOtaFact(value: unknown): value is StagingOtaFact {
     value.releaseMethod === 'Upload' &&
     isTargetRange(value.targetRange) &&
     isNonEmptyString(value.description) &&
+    (!hasMandatory || typeof value.mandatory === 'boolean') &&
     ['published', 'approved'].includes(String(value.status))
   );
 }
