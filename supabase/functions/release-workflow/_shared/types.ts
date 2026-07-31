@@ -27,6 +27,40 @@ export interface RevoPushRecord {
   packageHash: string;
 }
 
+export interface StagingOtaIntent {
+  status: 'intent' | 'retryable' | 'unknown';
+  platform: Platform;
+  deployment: 'staging';
+  sourceReleaseId: string;
+  preparationId: string;
+  treeHash: string;
+  gitCommit: string;
+  targetRange: string;
+  description: string;
+}
+
+export interface StagingOtaFact extends RevoPushRecord {
+  releaseMethod: 'Upload';
+  targetRange: string;
+  description: string;
+  status: 'published' | 'approved';
+}
+
+export interface BaseRegistration {
+  deployment: 'staging' | 'production';
+  status: 'intent' | 'retryable' | 'unknown';
+  easBuildId: string;
+  appVersion: string;
+  buildNumber: string;
+}
+
+export interface StoreBase {
+  status: 'pending' | 'eligible' | 'registered';
+  staging: RevoPushRecord | null;
+  production: RevoPushRecord | null;
+  registration?: BaseRegistration;
+}
+
 export interface PreviewBuildAttempt {
   easBuildId: string;
   appVersion: string;
@@ -68,11 +102,7 @@ export interface ProductionAttempt extends PreviewBuildAttempt {
     providerState: string | null;
     checkedAt: string;
   } | null;
-  base: {
-    status: 'pending' | 'eligible' | 'registered';
-    staging: RevoPushRecord | null;
-    production: RevoPushRecord | null;
-  } | null;
+  base: StoreBase | null;
 }
 
 export interface PlatformPreparation {
@@ -87,7 +117,7 @@ export interface PlatformPreparation {
 export interface ReleasePlatform {
   attempts: ProductionAttempt[];
   ota: {
-    staging: (RevoPushRecord & { status: 'published' | 'approved' }) | null;
+    staging: StagingOtaIntent | StagingOtaFact | null;
     production: RevoPushRecord | null;
   } | null;
 }
@@ -111,7 +141,11 @@ export interface StoreReleaseRecord extends ReleaseRecordBase {
 }
 
 export interface OtaReleaseRecord extends ReleaseRecordBase {
+  sourceReleaseId: string;
+  preparationId: string;
+  treeHash: string;
   gitCommit: string;
+  targetRange: string;
   releaseType: 'ota';
 }
 
@@ -124,11 +158,11 @@ export interface AdoptedBaselineArtifact {
   sourceCommit: string;
   sourceTreeHash: string;
   storeStatus: {
-    status: 'live';
+    status: StoreStatus;
     providerState: string | null;
     checkedAt: string;
   };
-  base: { status: 'eligible'; staging: null; production: null };
+  base: StoreBase;
 }
 
 export interface AdoptedBaselineRecord {
@@ -146,7 +180,8 @@ export interface AdoptedBaselineRecord {
 export type ReleaseRecord =
   StoreReleaseRecord | OtaReleaseRecord | AdoptedBaselineRecord;
 
-export type StagingResetStatus = 'pending' | 'cleared_and_verified';
+export type StagingResetStatus =
+  'pending' | 'clearing' | 'cleared_and_verified';
 
 export interface ReleaseState {
   stateVersion: 2;

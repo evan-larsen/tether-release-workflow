@@ -141,8 +141,14 @@
       "expected": true
     },
     {
-      "id": "staging-lane-ios-clear",
+      "id": "staging-lane-ios-clear-begin",
       "previous": "reset-pending-preview-candidate",
+      "next": "reset-ios-clearing-preview-candidate",
+      "expected": true
+    },
+    {
+      "id": "staging-lane-ios-clear",
+      "previous": "reset-ios-clearing-preview-candidate",
       "next": "reset-ios-cleared-preview-candidate",
       "expected": true
     },

@@ -25,7 +25,9 @@ export function buildStagingLaneContractPair(
     },
     releases: [candidate],
   };
-  const iosCleared = structuredClone(pending);
+  const iosClearing = structuredClone(pending);
+  iosClearing.stagingLane.resetProgress!.ios = 'clearing';
+  const iosCleared = structuredClone(iosClearing);
   iosCleared.stagingLane.resetProgress!.ios = 'cleared_and_verified';
   const complete = structuredClone(pending);
   complete.stagingLane.resetProgress = {
@@ -40,7 +42,8 @@ export function buildStagingLaneContractPair(
   const pairs: Record<string, [unknown, unknown]> = {
     'staging-lane-initial-claim': [unassigned, claimed],
     'staging-lane-reset-begin': [foreign, pending],
-    'staging-lane-ios-clear': [pending, iosCleared],
+    'staging-lane-ios-clear-begin': [pending, iosClearing],
+    'staging-lane-ios-clear': [iosClearing, iosCleared],
     'staging-lane-reset-complete': [complete, claimed],
     'staging-lane-direct-swap': [foreign, claimed],
     'staging-lane-early-complete': [pending, claimed],

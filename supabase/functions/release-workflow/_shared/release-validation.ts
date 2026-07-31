@@ -9,20 +9,21 @@ import {
 } from './state-validation-primitives.ts';
 import { hasValidPlatformPreparations } from './platform-preparation-validation.ts';
 import { isAdoptedBaseline } from './legacy-baseline-validation.ts';
+import {
+  isStagingOta,
+  isStagingOtaFact,
+  isTargetRange,
+} from './staging-ota-validation.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
-function isOta(value: unknown): boolean {
+function isOta(
+  value: unknown,
+  platform: string,
+  release: Record<string, unknown>,
+): boolean {
   if (!hasExactKeys(value, ['staging', 'production'])) return false;
-  if (value.staging === null) return value.production === null;
-  if (
-    !hasExactKeys(value.staging, ['label', 'packageHash', 'status']) ||
-    !isRevoPushFact({
-      label: value.staging.label,
-      packageHash: value.staging.packageHash,
-    }) ||
-    !['published', 'approved'].includes(String(value.staging.status))
-  )
-    return false;
+  if (!isStagingOta(value.staging, platform, release)) return false;
+  if (!isStagingOtaFact(value.staging)) return value.production === null;
   return (
     value.production === null ||
     (value.staging.status === 'approved' && isRevoPushFact(value.production))
@@ -32,6 +33,8 @@ function isPlatformRelease(
   value: unknown,
   type: unknown,
   releaseVersion: unknown,
+  platform: string,
+  release: Record<string, unknown>,
 ): boolean {
   return (
     hasExactKeys(value, ['attempts', 'ota']) &&
@@ -55,7 +58,7 @@ function isPlatformRelease(
     ).size === value.attempts.length &&
     (type === 'store'
       ? value.ota === null
-      : value.attempts.length === 0 && isOta(value.ota))
+      : value.attempts.length === 0 && isOta(value.ota, platform, release))
   );
 }
 function isPreparation(value: unknown): value is Record<string, unknown> {
@@ -126,6 +129,8 @@ export function isRelease(value: unknown): boolean {
         platforms[platform],
         release.releaseType,
         release.version,
+        platform,
+        release,
       ),
     )
   )
@@ -181,7 +186,11 @@ export function isRelease(value: unknown): boolean {
     !hasExactKeys(release, [
       'id',
       'version',
+      'sourceReleaseId',
+      'preparationId',
+      'treeHash',
       'gitCommit',
+      'targetRange',
       'native',
       'createdAt',
       'releaseType',
@@ -189,7 +198,13 @@ export function isRelease(value: unknown): boolean {
       'platforms',
       ...(hasSupersededReason ? ['supersededReason'] : []),
     ]) ||
-    !isNonEmptyString(release.gitCommit)
+    !isNonEmptyString(release.sourceReleaseId) ||
+    !isNonEmptyString(release.preparationId) ||
+    typeof release.treeHash !== 'string' ||
+    !/^[0-9a-f]{40}$/i.test(release.treeHash) ||
+    typeof release.gitCommit !== 'string' ||
+    !/^[0-9a-f]{40}$/i.test(release.gitCommit) ||
+    !isTargetRange(release.targetRange)
   )
     return false;
   return release.status !== 'complete' || hasCompleteProduction(release);

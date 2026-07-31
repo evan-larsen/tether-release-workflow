@@ -5,6 +5,8 @@ import {
   isStrictVersion,
   isTimestamp,
 } from './state-validation-primitives.ts';
+import { isBase } from './base-validation.ts';
+import { STORE_STATUS_VALUES } from './types.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
 
@@ -36,14 +38,14 @@ function isArtifact(
     artifact.sourceCommit === source.commit &&
     artifact.sourceTreeHash === source.treeHash &&
     hasExactKeys(storeStatus, ['status', 'providerState', 'checkedAt']) &&
-    storeStatus.status === 'live' &&
+    STORE_STATUS_VALUES.includes(
+      storeStatus.status as (typeof STORE_STATUS_VALUES)[number],
+    ) &&
     (storeStatus.providerState === null ||
       isNonEmptyString(storeStatus.providerState)) &&
     isTimestamp(storeStatus.checkedAt) &&
-    hasExactKeys(base, ['status', 'staging', 'production']) &&
-    base.status === 'eligible' &&
-    base.staging === null &&
-    base.production === null
+    isBase(base, artifact) &&
+    ['eligible', 'registered'].includes(String(base.status))
   );
 }
 

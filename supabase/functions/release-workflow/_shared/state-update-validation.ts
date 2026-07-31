@@ -6,7 +6,9 @@ import {
 } from './production-update-validation.ts';
 import { isExactEmptyV1 } from './state-migration.ts';
 import { getNextNative, isReleaseState } from './state-validation.ts';
+import { isStagingLaneTarget } from './staging-lane-validation.ts';
 import { getPlatformCorrectionUpdateKind } from './platform-correction-update-validation.ts';
+import { isValidInitialOta } from './ota-source-validation.ts';
 import type {
   ReleaseRecord,
   ReleaseState,
@@ -35,7 +37,8 @@ function isInitialRelease(
   if (release.releaseType === 'ota')
     return (
       previous.currentNative !== null &&
-      release.native === previous.currentNative
+      release.native === previous.currentNative &&
+      isValidInitialOta(previous, release)
     );
   if (release.native === previous.currentNative)
     return (
@@ -74,6 +77,7 @@ function isAppendOrSupersession(
     .filter((index) => index >= 0);
   if (
     !changed.length &&
+    appended.releaseType === 'store' &&
     previous.releases.some(
       (release) =>
         release.releaseType === 'store' &&
@@ -114,24 +118,26 @@ function isStagingLaneUpdate(
     return false;
   const before = previous.stagingLane;
   const after = next.stagingLane;
-  const target = getNextNative(previous.currentNative);
-  const hasCandidate = previous.releases.some(
-    (release) =>
-      release.releaseType === 'store' &&
-      release.status === 'in_progress' &&
-      release.nativeFloorVersion !== null &&
-      release.native === target,
-  );
+  const target = after.resetTargetNative ?? after.activeNative;
+  const hasCandidate =
+    target !== null &&
+    isStagingLaneTarget(
+      previous as unknown as Record<string, unknown>,
+      previous.releases as unknown as Array<Record<string, unknown>>,
+      target,
+    );
   const pending = (progress: typeof after.resetProgress | undefined) =>
     progress?.ios === 'pending' && progress.android === 'pending';
-  const oneClear = (
+  const oneStep = (
     progress: typeof after.resetProgress | undefined,
     prior: typeof before.resetProgress | undefined,
   ) =>
     (['ios', 'android'] as const).some(
       (platform) =>
-        prior?.[platform] === 'pending' &&
-        progress?.[platform] === 'cleared_and_verified' &&
+        ((prior?.[platform] === 'pending' &&
+          progress?.[platform] === 'clearing') ||
+          (prior?.[platform] === 'clearing' &&
+            progress?.[platform] === 'cleared_and_verified')) &&
         (['ios', 'android'] as const).every(
           (other) => other === platform || progress?.[other] === prior[other],
         ),
@@ -158,7 +164,7 @@ function isStagingLaneUpdate(
     before.resetTargetNative === target &&
     after.resetTargetNative === target &&
     before.activeNative === after.activeNative &&
-    oneClear(after.resetProgress, before.resetProgress)
+    oneStep(after.resetProgress, before.resetProgress)
   )
     return true;
   return (

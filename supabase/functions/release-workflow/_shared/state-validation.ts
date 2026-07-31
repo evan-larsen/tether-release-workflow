@@ -2,41 +2,13 @@ import { isRelease } from './release-validation.ts';
 import { hasExactKeys, isNative } from './state-validation-primitives.ts';
 import { getPlatformPreparations } from './platform-preparation-validation.ts';
 import { isAdoptedBaseline } from './legacy-baseline-validation.ts';
+import {
+  isStagingLane,
+  isStagingLaneTarget,
+} from './staging-lane-validation.ts';
 import type { ReleaseState } from './types.ts';
 
 const PLATFORMS = ['ios', 'android'] as const;
-
-function isResetProgress(value: unknown): boolean {
-  return (
-    hasExactKeys(value, PLATFORMS) &&
-    PLATFORMS.every((platform) =>
-      ['pending', 'cleared_and_verified'].includes(
-        String((value as Record<string, unknown>)[platform]),
-      ),
-    )
-  );
-}
-
-function isStagingLane(value: unknown): boolean {
-  const lane = value as Record<string, unknown>;
-  const legacy = hasExactKeys(value, ['activeNative', 'resetTargetNative']);
-  const reset = hasExactKeys(value, [
-    'activeNative',
-    'resetTargetNative',
-    'resetProgress',
-  ]);
-  if (
-    (!legacy && !reset) ||
-    (lane.activeNative !== null && !isNative(lane.activeNative)) ||
-    (lane.resetTargetNative !== null && !isNative(lane.resetTargetNative))
-  )
-    return false;
-  return lane.resetTargetNative === null
-    ? !reset
-    : lane.activeNative !== null &&
-        lane.activeNative !== lane.resetTargetNative &&
-        (!reset || isResetProgress(lane.resetProgress));
-}
 
 function getNativeNumber(value: unknown): number {
   return value === null ? 0 : Number(String(value).slice('native-'.length));
@@ -211,7 +183,7 @@ function hasValidStagingLane(
     return false;
   if (
     lane.resetTargetNative !== null &&
-    lane.resetTargetNative !== getNextNative(state.currentNative)
+    !isStagingLaneTarget(state, releases, lane.resetTargetNative)
   )
     return false;
   return releases.every((release) => {

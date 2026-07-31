@@ -52,6 +52,7 @@ function sameGenerationRelease(): StoreReleaseRecord {
     platforms: emptyPlatforms(),
   };
 }
+
 function previewPlatform(platform: 'ios' | 'android') {
   const easBuildId = `${platform}-preview`;
   return {

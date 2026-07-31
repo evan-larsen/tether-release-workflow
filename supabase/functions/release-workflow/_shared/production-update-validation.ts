@@ -10,6 +10,14 @@ import {
   hasKnownPreparation,
   hasPlatformPublicProgress,
 } from './platform-preparation-validation.ts';
+import {
+  getAdoptedUpdateKind,
+  getBaseLifecycleKind,
+} from './base-update-validation.ts';
+import {
+  getStagingOtaDescription,
+  isStagingOtaIntent,
+} from './staging-ota-validation.ts';
 
 const PLATFORMS: Platform[] = ['ios', 'android'];
 
@@ -44,7 +52,7 @@ export function getProductionUpdateKind(
       const expected = clone(previous);
       expected.platforms[platform].attempts.push(attempt);
       if (
-        ['requested', 'failed'].includes(attempt.status) &&
+        ['requested', 'succeeded', 'failed'].includes(attempt.status) &&
         attempt.sourcePreparationId ===
           getActivePreparationId(sourceRelease, platform) &&
         hasKnownPreparation(
@@ -119,8 +127,21 @@ export function getProductionUpdateKind(
 
       const oldBase = oldAttempt.base;
       const newBase = newAttempt.base;
+      const baseLifecycle = getBaseLifecycleKind(
+        oldBase as unknown as Record<string, unknown> | null,
+        newBase as unknown as Record<string, unknown> | null,
+        oldAttempt as unknown as Record<string, unknown>,
+      );
       const expected = clone(previous);
       expected.platforms[platform].attempts[index].base = newBase;
+      if (baseLifecycle) {
+        if (
+          baseLifecycle === 'production_base_registered' &&
+          hasAllRegistered(next)
+        )
+          expected.status = 'complete';
+        if (equal(expected, next)) return baseLifecycle;
+      }
       if (
         oldBase === null &&
         newBase?.status === 'pending' &&
@@ -135,23 +156,6 @@ export function getProductionUpdateKind(
         equal(expected, next)
       )
         return 'base_eligible';
-      if (
-        oldBase?.status === 'eligible' &&
-        oldBase.staging === null &&
-        newBase?.status === 'eligible' &&
-        newBase.staging !== null &&
-        equal(expected, next)
-      )
-        return 'staging_base_registered';
-      if (
-        oldBase?.status === 'eligible' &&
-        oldBase.staging !== null &&
-        newBase?.status === 'registered' &&
-        newBase.production !== null
-      ) {
-        if (hasAllRegistered(next)) expected.status = 'complete';
-        if (equal(expected, next)) return 'production_base_registered';
-      }
     }
   }
   return null;
@@ -164,7 +168,39 @@ function getOtaUpdateKind(
   for (const platform of PLATFORMS) {
     const before = previous.platforms[platform].ota!;
     const after = next.platforms[platform].ota!;
-    if (before.staging === null && after.staging?.status === 'published') {
+    if (
+      [null, 'retryable'].includes(before.staging?.status ?? null) &&
+      after.staging?.status === 'intent' &&
+      isStagingOtaIntent(
+        after.staging,
+        platform,
+        previous as unknown as Record<string, unknown>,
+      )
+    ) {
+      const expected = clone(previous);
+      expected.platforms[platform].ota!.staging = after.staging;
+      if (equal(expected, next)) return 'staging_ota_publish_intent';
+    }
+    if (
+      before.staging?.status === 'intent' &&
+      ['retryable', 'unknown'].includes(after.staging?.status ?? '')
+    ) {
+      const expected = clone(previous);
+      expected.platforms[platform].ota!.staging!.status = after.staging!.status;
+      if (equal(expected, next)) return 'staging_ota_publish_outcome';
+    }
+    if (
+      ['intent', 'retryable', 'unknown'].includes(
+        before.staging?.status ?? '',
+      ) &&
+      after.staging?.status === 'published' &&
+      after.staging.targetRange === before.staging!.targetRange &&
+      after.staging.description ===
+        getStagingOtaDescription(
+          previous as unknown as Record<string, unknown>,
+          platform,
+        )
+    ) {
       const expected = clone(previous);
       expected.platforms[platform].ota!.staging = after.staging;
       if (equal(expected, next)) return 'staging_ota_published';
@@ -200,6 +236,8 @@ export function getReleaseUpdateKind(
   previous: ReleaseRecord,
   next: ReleaseRecord,
 ): string | null {
+  if (previous.releaseType === 'adopted_baseline')
+    return getAdoptedUpdateKind(previous, next);
   if (
     previous.releaseType !== next.releaseType ||
     previous.id !== next.id ||

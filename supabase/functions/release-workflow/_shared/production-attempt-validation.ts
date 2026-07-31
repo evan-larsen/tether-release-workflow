@@ -1,4 +1,4 @@
-import { isRevoPushFact } from './preview-validation.ts';
+import { isBase } from './base-validation.ts';
 import {
   hasExactKeys,
   isNonEmptyString,
@@ -39,22 +39,6 @@ function isStoreStatus(value: unknown): boolean {
     (value.providerState === null || isNonEmptyString(value.providerState)) &&
     isTimestamp(value.checkedAt)
   );
-}
-
-function isBase(value: unknown): boolean {
-  if (
-    !hasExactKeys(value, ['status', 'staging', 'production']) ||
-    !['pending', 'eligible', 'registered'].includes(String(value.status))
-  )
-    return false;
-  if (value.status === 'pending')
-    return value.staging === null && value.production === null;
-  if (value.status === 'eligible')
-    return (
-      (value.staging === null || isRevoPushFact(value.staging)) &&
-      value.production === null
-    );
-  return isRevoPushFact(value.staging) && isRevoPushFact(value.production);
 }
 
 export function isProductionAttempt(
@@ -103,7 +87,7 @@ export function isProductionAttempt(
     ).size !== value.submissions.length ||
     (hasSourcePreparation && !isNonEmptyString(value.sourcePreparationId)) ||
     (value.storeStatus !== null && !isStoreStatus(value.storeStatus)) ||
-    (value.base !== null && !isBase(value.base))
+    (value.base !== null && !isBase(value.base, value))
   )
     return false;
   return (

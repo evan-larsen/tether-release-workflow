@@ -125,3 +125,57 @@ Deno.test('a new adopted-baseline bootstrap delta is rejected', () => {
   assertEquals(isReleaseState(next), true);
   assertEquals(validateReleaseStateUpdate(previous, next), false);
 });
+
+Deno.test('adopted base registration requires intent before each fact', () => {
+  const previous = adoptedState();
+  const intent = structuredClone(previous);
+  (
+    intent.releases[0] as AdoptedBaselineRecord
+  ).artifacts.ios.base.registration = {
+    deployment: 'staging',
+    status: 'intent',
+    easBuildId: 'ios-live-build',
+    appVersion: '1.8.0',
+    buildNumber: '84',
+  };
+  assertEquals(isReleaseState(intent), true);
+  assertEquals(validateReleaseStateUpdate(previous, intent), true);
+
+  const completed = structuredClone(intent);
+  (completed.releases[0] as AdoptedBaselineRecord).artifacts.ios.base = {
+    status: 'eligible',
+    staging: { label: 'v1', packageHash: 'hash-ios-staging' },
+    production: null,
+  };
+  assertEquals(isReleaseState(completed), true);
+  assertEquals(validateReleaseStateUpdate(intent, completed), true);
+
+  const forged = structuredClone(previous);
+  (forged.releases[0] as AdoptedBaselineRecord).artifacts.ios.base = (
+    completed.releases[0] as AdoptedBaselineRecord
+  ).artifacts.ios.base;
+  assertEquals(validateReleaseStateUpdate(previous, forged), false);
+});
+
+Deno.test('altered adopted base intent target is rejected', () => {
+  const previous = adoptedState();
+  const next = structuredClone(previous);
+  (
+    next.releases[0] as AdoptedBaselineRecord
+  ).artifacts.android.base.registration = {
+    deployment: 'production',
+    status: 'intent',
+    easBuildId: 'android-live-build',
+    appVersion: '1.8.0',
+    buildNumber: '999',
+  };
+  assertEquals(isReleaseState(next), false);
+  assertEquals(validateReleaseStateUpdate(previous, next), false);
+});
+
+Deno.test('unassigned Staging can claim the current adopted native', () => {
+  const previous = adoptedState();
+  const next = structuredClone(previous);
+  next.stagingLane.activeNative = 'native-1';
+  assertEquals(validateReleaseStateUpdate(previous, next), true);
+});
