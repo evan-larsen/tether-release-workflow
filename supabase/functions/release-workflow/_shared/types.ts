@@ -97,6 +97,14 @@ export interface ProductionAttempt extends PreviewBuildAttempt {
   submissions: Array<{
     id: string;
     status: 'pending' | 'submitted' | 'failed' | 'unknown';
+    providerSubmissionId?: string;
+    providerStatus?:
+      | 'AWAITING_BUILD'
+      | 'IN_QUEUE'
+      | 'IN_PROGRESS'
+      | 'FINISHED'
+      | 'ERRORED'
+      | 'CANCELED';
   }>;
   storeStatus: {
     status: StoreStatus;

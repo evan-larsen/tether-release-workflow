@@ -237,6 +237,28 @@ export function isReleaseState(value: unknown): value is ReleaseState {
   const releaseIds = releases.map((release) => String(release.id));
   const buildIds = releases.flatMap(getBuildIds);
   const submissionIds = releases.flatMap(getSubmissionIds);
+  const providerSubmissionIds = releases.flatMap((release) =>
+    release.releaseType === 'adopted_baseline'
+      ? []
+      : PLATFORMS.flatMap((platform) =>
+          (
+            release.platforms as Record<
+              string,
+              {
+                attempts: Array<{
+                  submissions: Array<Record<string, unknown>>;
+                }>;
+              }
+            >
+          )[platform].attempts.flatMap((attempt) =>
+            attempt.submissions.flatMap((submission) =>
+              typeof submission.providerSubmissionId === 'string'
+                ? [submission.providerSubmissionId]
+                : [],
+            ),
+          ),
+        ),
+  );
   const preparationIds = releases.flatMap((release) =>
     release.releaseType === 'store'
       ? [
@@ -255,6 +277,7 @@ export function isReleaseState(value: unknown): value is ReleaseState {
     new Set(releaseIds).size === releaseIds.length &&
     new Set(buildIds).size === buildIds.length &&
     new Set(submissionIds).size === submissionIds.length &&
+    new Set(providerSubmissionIds).size === providerSubmissionIds.length &&
     new Set(preparationIds).size === preparationIds.length
   );
 }

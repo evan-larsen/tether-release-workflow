@@ -25,10 +25,30 @@ function isBuild(value: Record<string, unknown>): boolean {
 }
 
 function isSubmission(value: unknown): boolean {
+  const hasProviderFact = Object.hasOwn(
+    value as object,
+    'providerSubmissionId',
+  );
   return (
-    hasExactKeys(value, ['id', 'status']) &&
+    hasExactKeys(value, [
+      'id',
+      'status',
+      ...(hasProviderFact ? ['providerSubmissionId', 'providerStatus'] : []),
+    ]) &&
     isNonEmptyString(value.id) &&
-    ['pending', 'submitted', 'failed', 'unknown'].includes(String(value.status))
+    ['pending', 'submitted', 'failed', 'unknown'].includes(
+      String(value.status),
+    ) &&
+    (!hasProviderFact ||
+      (isNonEmptyString(value.providerSubmissionId) &&
+        [
+          'AWAITING_BUILD',
+          'IN_QUEUE',
+          'IN_PROGRESS',
+          'FINISHED',
+          'ERRORED',
+          'CANCELED',
+        ].includes(String(value.providerStatus))))
   );
 }
 

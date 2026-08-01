@@ -116,15 +116,15 @@ export function getProductionUpdateKind(
       }
       if (
         !publicProgress &&
-        oldSubmissions.at(-1)?.status === 'pending' &&
+        ['pending', 'unknown'].includes(oldSubmissions.at(-1)?.status ?? '') &&
         ['submitted', 'failed', 'unknown'].includes(
           newSubmissions.at(-1)?.status ?? '',
         )
       ) {
         const expected = clone(previous);
-        expected.platforms[platform].attempts[index].submissions.at(
-          -1,
-        )!.status = newSubmissions.at(-1)!.status;
+        expected.platforms[platform].attempts[index].submissions[
+          expected.platforms[platform].attempts[index].submissions.length - 1
+        ] = newSubmissions.at(-1)!;
         if (equal(expected, next)) return 'submission_resolved';
       }
 
