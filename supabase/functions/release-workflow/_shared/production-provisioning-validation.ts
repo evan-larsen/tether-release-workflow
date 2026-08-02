@@ -47,6 +47,9 @@ export function isProductionEasVariableMetadata(
   value: unknown,
   facts: ReturnType<typeof getProductionProvisioningFacts>,
 ): value is ProductionEasVariableMetadata {
+  const timestampKey = Object.hasOwn(value ?? {}, 'verifiedAt')
+    ? 'verifiedAt'
+    : 'updatedAt';
   return (
     hasExactKeys(value, [
       'id',
@@ -55,7 +58,7 @@ export function isProductionEasVariableMetadata(
       'scope',
       'visibility',
       'type',
-      'updatedAt',
+      timestampKey,
     ]) &&
     isNonEmptyString(value.id) &&
     value.name === facts.easVariableName &&
@@ -63,7 +66,7 @@ export function isProductionEasVariableMetadata(
     value.scope === facts.scope &&
     value.visibility === facts.visibility &&
     value.type === facts.type &&
-    isTimestamp(value.updatedAt)
+    isTimestamp(value[timestampKey])
   );
 }
 

@@ -136,15 +136,18 @@ export interface PlatformPreparation {
 export type ProductionProvisioningStatus =
   'intent' | 'retryable' | 'unknown' | 'deployment_ready' | 'eas_configured';
 
-export interface ProductionEasVariableMetadata {
+export type ProductionEasVariableTimestamp =
+  | { updatedAt: string; verifiedAt?: never }
+  | { updatedAt?: never; verifiedAt: string };
+
+export type ProductionEasVariableMetadata = {
   id: string;
   name: string;
   environment: 'production';
   scope: 'project';
   visibility: 'sensitive';
   type: 'string';
-  updatedAt: string;
-}
+} & ProductionEasVariableTimestamp;
 
 export interface ProductionProvisioningPlatform {
   status: ProductionProvisioningStatus;

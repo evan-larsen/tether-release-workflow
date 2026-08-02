@@ -169,7 +169,7 @@ function buildPair(id: string): [unknown, unknown] {
       scope: record.scope,
       visibility: record.visibility,
       type: record.type,
-      updatedAt: time,
+      verifiedAt: time,
     };
     return [previous, next];
   }

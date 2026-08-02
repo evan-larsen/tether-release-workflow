@@ -100,6 +100,46 @@ function metadata(
 }
 
 Deno.test(
+  'accepts local verification timestamps and preserves legacy provider timestamps',
+  () => {
+    const ready = begin(approvedState());
+    getCandidate(ready).productionProvisioning!.platforms.ios.status =
+      'deployment_ready';
+
+    const local = structuredClone(ready);
+    const localRecord =
+      getCandidate(local).productionProvisioning!.platforms.ios;
+    localRecord.status = 'eas_configured';
+    localRecord.easVariable = {
+      id: 'eas-variable-id',
+      name: localRecord.easVariableName,
+      environment: localRecord.environment,
+      scope: localRecord.scope,
+      visibility: localRecord.visibility,
+      type: localRecord.type,
+      verifiedAt: time,
+    };
+    assertEquals(validateReleaseStateUpdate(ready, local), true);
+
+    const legacy = structuredClone(ready);
+    const legacyRecord =
+      getCandidate(legacy).productionProvisioning!.platforms.ios;
+    legacyRecord.status = 'eas_configured';
+    legacyRecord.easVariable = metadata(legacyRecord);
+    assertEquals(validateReleaseStateUpdate(ready, legacy), true);
+
+    const both = structuredClone(ready);
+    const bothRecord = getCandidate(both).productionProvisioning!.platforms.ios;
+    bothRecord.status = 'eas_configured';
+    (bothRecord as unknown as { easVariable: unknown }).easVariable = {
+      ...metadata(bothRecord),
+      verifiedAt: time,
+    };
+    assertEquals(validateReleaseStateUpdate(ready, both), false);
+  },
+);
+
+Deno.test(
   'accepts both platform intent → deployment_ready → eas_configured lifecycles',
   () => {
     const initial = approvedState();

@@ -7,7 +7,7 @@
     "test": "deno test --config supabase/functions/release-workflow/deno.json --allow-env --allow-net supabase/functions/release-workflow/tests",
     "format": "prettier --write . --cache --cache-location .cache/prettier --log-level warn",
     "format:check": "prettier --check .",
-    "contract:parity": "node ../tether-app/scripts/verifyReleaseContractParity.js --strict --app-root ../tether-app --edge-root .",
+    "contract:parity": "node ../tether-app/scripts/release-cli/verifyContractParity.js --strict --app-root ../tether-app --edge-root .",
     "check": "npm run lint && npm run test && npm run format:check",
     "supabase:status": "supabase status",
     "supabase:serve": "supabase functions serve release-workflow --env-file .env.local",
