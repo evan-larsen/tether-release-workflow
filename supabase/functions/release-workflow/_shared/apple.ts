@@ -5,6 +5,9 @@ import type { StoreBuildIdentity } from './store-status-types.ts';
 type StoreBuildInput = StoreBuildIdentity & { action?: string };
 
 const APP_STORE_CONNECT_URL = 'https://api.appstoreconnect.apple.com/v1';
+// Review history can be longer than one App Store Connect response. Bound the
+// read to avoid making ordinary status enrichment unbounded.
+const REVIEW_SUBMISSION_PAGE_LIMIT = 5;
 
 interface AppleConfig {
   bundleId: string;
@@ -21,6 +24,7 @@ interface AppleResource {
 
 interface AppleCollection {
   data?: AppleResource[];
+  links?: { next?: unknown };
 }
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -113,12 +117,84 @@ async function getAppleJson<T>(
   path: string,
   token: string,
 ): Promise<T> {
-  const response = await fetcher(`${APP_STORE_CONNECT_URL}${path}`, {
+  const url = path.startsWith('http')
+    ? new URL(path)
+    : new URL(`${APP_STORE_CONNECT_URL}${path}`);
+  if (
+    url.origin !== new URL(APP_STORE_CONNECT_URL).origin ||
+    !url.pathname.startsWith('/v1/')
+  ) {
+    throw new ProviderError();
+  }
+  const response = await fetcher(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (response.status === 404) return { data: [] } as T;
   if (!response.ok) throw new ProviderError();
   return (await response.json()) as T;
+}
+
+function getLatestReviewSubmittedAt(
+  submissions: AppleCollection,
+  appStoreVersionId: string,
+  latest: string | null,
+): string | null {
+  return (submissions.data ?? []).reduce((current, submission) => {
+    if (
+      submission.relationships?.appStoreVersionForReview?.data?.id !==
+      appStoreVersionId
+    ) {
+      return current;
+    }
+    const submittedDate = submission.attributes?.submittedDate;
+    if (
+      typeof submittedDate !== 'string' ||
+      !Number.isFinite(Date.parse(submittedDate))
+    ) {
+      return current;
+    }
+    if (!current || Date.parse(submittedDate) > Date.parse(current)) {
+      return submittedDate;
+    }
+    return current;
+  }, latest);
+}
+
+async function getAppleReviewSubmittedAt(
+  appId: string,
+  appStoreVersionId: string,
+  token: string,
+  fetcher: FetchLike,
+): Promise<string | null> {
+  let nextPath: string | null =
+    `/apps/${encodeURIComponent(appId)}/reviewSubmissions?include=appStoreVersionForReview&limit=200`;
+  let reviewSubmittedAt: string | null = null;
+  const visitedPaths = new Set<string>();
+
+  for (
+    let page = 0;
+    page < REVIEW_SUBMISSION_PAGE_LIMIT && nextPath;
+    page += 1
+  ) {
+    if (visitedPaths.has(nextPath)) break;
+    visitedPaths.add(nextPath);
+    const submissions: AppleCollection = await getAppleJson<AppleCollection>(
+      fetcher,
+      nextPath,
+      token,
+    );
+    reviewSubmittedAt = getLatestReviewSubmittedAt(
+      submissions,
+      appStoreVersionId,
+      reviewSubmittedAt,
+    );
+    nextPath =
+      typeof submissions.links?.next === 'string'
+        ? submissions.links.next
+        : null;
+  }
+
+  return reviewSubmittedAt;
 }
 
 interface AppleStoreLookup {
@@ -226,29 +302,16 @@ export async function getAppleStoreReviewFacts(
       reviewSubmittedAt: null,
     };
   try {
-    const submissions = await getAppleJson<AppleCollection>(
-      fetcher,
-      `/apps/${encodeURIComponent(lookup.appId)}/reviewSubmissions?limit=200`,
+    const reviewSubmittedAt = await getAppleReviewSubmittedAt(
+      lookup.appId,
+      lookup.appStoreVersionId,
       lookup.token,
+      fetcher,
     );
-    const reviewSubmittedAt = submissions.data
-      ?.filter(
-        (submission) =>
-          submission.relationships?.appStoreVersionForReview?.data?.id ===
-          lookup.appStoreVersionId,
-      )
-      .map((submission) => submission.attributes?.submittedDate)
-      .filter(
-        (submittedDate): submittedDate is string =>
-          typeof submittedDate === 'string' &&
-          Number.isFinite(Date.parse(submittedDate)),
-      )
-      .sort()
-      .at(-1);
     return {
       status: lookup.status,
       providerState: lookup.providerState,
-      reviewSubmittedAt: reviewSubmittedAt ?? null,
+      reviewSubmittedAt,
     };
   } catch {
     return {

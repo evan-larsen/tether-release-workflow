@@ -160,8 +160,10 @@ Deno.test(
       name: 'ECDSA',
       namedCurve: 'P-256',
     });
+    const calls: string[] = [];
     const fetch = (input: string | URL | Request) => {
       const url = String(input);
+      calls.push(url);
       if (url.includes('/apps?'))
         return Promise.resolve(Response.json({ data: [{ id: 'app-id' }] }));
       if (url.includes('/builds?'))
@@ -186,6 +188,15 @@ Deno.test(
                 attributes: { submittedDate: '2026-07-31T12:00:00.000Z' },
                 relationships: {
                   appStoreVersionForReview: { data: { id: 'version-id' } },
+                },
+              },
+              {
+                id: 'review-other-version',
+                attributes: { submittedDate: '2026-08-01T12:00:00.000Z' },
+                relationships: {
+                  appStoreVersionForReview: {
+                    data: { id: 'other-version-id' },
+                  },
                 },
               },
             ],
@@ -221,6 +232,155 @@ Deno.test(
       providerState: 'IN_REVIEW',
       reviewSubmittedAt: '2026-07-31T12:00:00.000Z',
     });
+    const reviewRequest = calls.find((url) =>
+      url.includes('/reviewSubmissions?'),
+    );
+    assertEquals(
+      reviewRequest?.includes('include=appStoreVersionForReview'),
+      true,
+    );
+  },
+);
+
+Deno.test(
+  'follows a later Apple review submissions page for the exact version',
+  async () => {
+    const privateKey = await createPrivateKey({
+      name: 'ECDSA',
+      namedCurve: 'P-256',
+    });
+    const reviewPages: string[] = [];
+    const fetch = (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/apps?'))
+        return Promise.resolve(Response.json({ data: [{ id: 'app-id' }] }));
+      if (url.includes('/builds?'))
+        return Promise.resolve(
+          Response.json({
+            data: [{ id: 'build-id', attributes: { version: '43' } }],
+          }),
+        );
+      if (url.includes('/reviewSubmissions?')) {
+        reviewPages.push(url);
+        if (url.includes('cursor=next-page')) {
+          return Promise.resolve(
+            Response.json({
+              data: [
+                {
+                  id: 'review-later-page',
+                  attributes: { submittedDate: '2026-08-01T12:00:00.000Z' },
+                  relationships: {
+                    appStoreVersionForReview: { data: { id: 'version-id' } },
+                  },
+                },
+              ],
+            }),
+          );
+        }
+        return Promise.resolve(
+          Response.json({
+            data: [],
+            links: {
+              next: 'https://api.appstoreconnect.apple.com/v1/apps/app-id/reviewSubmissions?include=appStoreVersionForReview&limit=200&cursor=next-page',
+            },
+          }),
+        );
+      }
+      return Promise.resolve(
+        Response.json({
+          data: {
+            id: 'version-id',
+            attributes: { appStoreState: 'IN_REVIEW' },
+          },
+        }),
+      );
+    };
+
+    const result = await getAppleStoreReviewFacts(
+      {
+        action: 'get_store_build_status',
+        platform: 'ios',
+        appVersion: '1.8.0',
+        buildNumber: '43',
+      },
+      {
+        bundleId: 'com.tetherdaily.app',
+        privateKey,
+        keyId: 'key-id',
+        issuerId: 'issuer-id',
+      },
+      fetch,
+    );
+
+    assertEquals(result.reviewSubmittedAt, '2026-08-01T12:00:00.000Z');
+    assertEquals(reviewPages.length, 2);
+  },
+);
+
+Deno.test(
+  'ignores an unsafe Apple review submissions pagination link',
+  async () => {
+    const privateKey = await createPrivateKey({
+      name: 'ECDSA',
+      namedCurve: 'P-256',
+    });
+    const calls: string[] = [];
+    const fetch = (input: string | URL | Request) => {
+      const url = String(input);
+      calls.push(url);
+      if (url.includes('/apps?'))
+        return Promise.resolve(Response.json({ data: [{ id: 'app-id' }] }));
+      if (url.includes('/builds?'))
+        return Promise.resolve(
+          Response.json({
+            data: [{ id: 'build-id', attributes: { version: '43' } }],
+          }),
+        );
+      if (url.includes('/reviewSubmissions?')) {
+        return Promise.resolve(
+          Response.json({
+            data: [],
+            links: {
+              next: 'https://unsafe.example.test/v1/reviewSubmissions',
+            },
+          }),
+        );
+      }
+      return Promise.resolve(
+        Response.json({
+          data: {
+            id: 'version-id',
+            attributes: { appStoreState: 'IN_REVIEW' },
+          },
+        }),
+      );
+    };
+
+    const result = await getAppleStoreReviewFacts(
+      {
+        action: 'get_store_build_status',
+        platform: 'ios',
+        appVersion: '1.8.0',
+        buildNumber: '43',
+      },
+      {
+        bundleId: 'com.tetherdaily.app',
+        privateKey,
+        keyId: 'key-id',
+        issuerId: 'issuer-id',
+      },
+      fetch,
+    );
+
+    assertEquals(result, {
+      status: 'pending',
+      providerState: 'IN_REVIEW',
+      reviewSubmittedAt: null,
+    });
+    assertEquals(
+      calls.some((url) => url.includes('unsafe.example.test')),
+      false,
+    );
   },
 );
 
