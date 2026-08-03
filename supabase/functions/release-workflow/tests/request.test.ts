@@ -21,6 +21,14 @@ Deno.test('accepts an Android numeric versionCode', () => {
   );
 });
 
+Deno.test('accepts the exact read-only store review facts contract', () => {
+  const request = {
+    ...validRequest,
+    action: 'get_store_build_review_facts',
+  } as const;
+  assertEquals(parseReleaseWorkflowPayload(request), request);
+});
+
 Deno.test(
   'rejects an unknown action, extra field, and invalid build number',
   () => {

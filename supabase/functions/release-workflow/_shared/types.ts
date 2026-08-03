@@ -14,7 +14,9 @@ export type {
   PreviewStagingOtaOperation,
 } from './preview-types.ts';
 export type { StoreStatusRequest } from './store-status-types.ts';
+export type { StoreReviewFactsRequest } from './store-review-facts-types.ts';
 import type { PreviewBuildAttempt, PreviewRecord } from './preview-types.ts';
+import type { StoreReviewFactsRequest } from './store-review-facts-types.ts';
 import type { StoreStatusRequest } from './store-status-types.ts';
 
 export type Platform = (typeof PLATFORM_VALUES)[number];
@@ -97,6 +99,7 @@ export interface ProductionAttempt extends PreviewBuildAttempt {
   submissions: Array<{
     id: string;
     status: 'pending' | 'submitted' | 'failed' | 'unknown';
+    submittedAt?: string;
     providerSubmissionId?: string;
     providerStatus?:
       | 'AWAITING_BUILD'
@@ -296,7 +299,10 @@ export interface UpdateReleaseStateRequest {
 }
 
 export type ReleaseWorkflowRequest =
-  StoreStatusRequest | GetReleaseStateRequest | UpdateReleaseStateRequest;
+  | StoreStatusRequest
+  | StoreReviewFactsRequest
+  | GetReleaseStateRequest
+  | UpdateReleaseStateRequest;
 
 export interface ReleaseStateRecord {
   revision: number;
@@ -321,6 +327,10 @@ export interface StoreStatusResponse {
   checkedAt: string;
 }
 
+export interface StoreReviewFactsResponse extends StoreStatusResponse {
+  reviewSubmittedAt: string | null;
+}
+
 export interface ReleaseWorkflowSecrets {
   googleServiceAccountJson?: string;
   applePrivateKey?: string;
@@ -343,5 +353,10 @@ export interface RuntimeDependencies {
 
 export interface StoreStatusResult {
   body: StoreStatusResponse;
+  httpStatus: number;
+}
+
+export interface StoreReviewFactsResult {
+  body: StoreReviewFactsResponse;
   httpStatus: number;
 }

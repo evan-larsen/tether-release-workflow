@@ -6,6 +6,7 @@ import {
   updateReleaseState,
 } from './_shared/release-state.ts';
 import { getStoreBuildStatus } from './_shared/store-status.ts';
+import { getStoreBuildReviewFacts } from './_shared/store-review-facts.ts';
 import type { RuntimeDependencies } from './_shared/types.ts';
 
 function getRuntimeDependencies(): RuntimeDependencies {
@@ -63,6 +64,10 @@ export function createReleaseWorkflowHandler(
       const input = await parseReleaseWorkflowRequest(req);
       if (input.action === 'get_store_build_status') {
         const result = await getStoreBuildStatus(input, dependencies);
+        return Response.json(result.body, { status: result.httpStatus });
+      }
+      if (input.action === 'get_store_build_review_facts') {
+        const result = await getStoreBuildReviewFacts(input, dependencies);
         return Response.json(result.body, { status: result.httpStatus });
       }
       if (input.action === 'get_release_state') {

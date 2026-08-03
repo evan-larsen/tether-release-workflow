@@ -1,5 +1,8 @@
 import { ProviderError } from './errors.ts';
-import type { FetchLike, StoreStatus, StoreStatusRequest } from './types.ts';
+import type { FetchLike, StoreStatus } from './types.ts';
+import type { StoreBuildIdentity } from './store-status-types.ts';
+
+type StoreBuildInput = StoreBuildIdentity & { action?: string };
 
 const APP_STORE_CONNECT_URL = 'https://api.appstoreconnect.apple.com/v1';
 
@@ -13,6 +16,7 @@ interface AppleConfig {
 interface AppleResource {
   id: string;
   attributes?: Record<string, unknown>;
+  relationships?: Record<string, { data?: { id?: unknown } }>;
 }
 
 interface AppleCollection {
@@ -117,11 +121,19 @@ async function getAppleJson<T>(
   return (await response.json()) as T;
 }
 
-export async function getAppleStoreStatus(
-  input: StoreStatusRequest,
+interface AppleStoreLookup {
+  status: StoreStatus;
+  providerState: string | null;
+  token: string;
+  appId: string | null;
+  appStoreVersionId: string | null;
+}
+
+async function getAppleStoreLookup(
+  input: StoreBuildInput,
   config: AppleConfig,
   fetcher: FetchLike,
-): Promise<{ status: StoreStatus; providerState: string | null }> {
+): Promise<AppleStoreLookup> {
   try {
     const token = await createAppleToken(config);
     const apps = await getAppleJson<AppleCollection>(
@@ -130,7 +142,14 @@ export async function getAppleStoreStatus(
       token,
     );
     const appId = apps.data?.[0]?.id;
-    if (!appId) return { status: 'not_found', providerState: null };
+    if (!appId)
+      return {
+        status: 'not_found',
+        providerState: null,
+        token,
+        appId: null,
+        appStoreVersionId: null,
+      };
 
     const builds = await getAppleJson<AppleCollection>(
       fetcher,
@@ -140,7 +159,14 @@ export async function getAppleStoreStatus(
     const build = builds.data?.find(
       (candidate) => candidate.attributes?.version === input.buildNumber,
     );
-    if (!build) return { status: 'not_found', providerState: null };
+    if (!build)
+      return {
+        status: 'not_found',
+        providerState: null,
+        token,
+        appId,
+        appStoreVersionId: null,
+      };
 
     const version = await getAppleJson<{ data?: AppleResource }>(
       fetcher,
@@ -151,11 +177,85 @@ export async function getAppleStoreStatus(
       version.data?.attributes?.appStoreState ??
       version.data?.attributes?.appVersionState;
     if (typeof state !== 'string')
-      return { status: 'pending', providerState: null };
-    return { status: toAppleStatus(state), providerState: state };
+      return {
+        status: 'pending',
+        providerState: null,
+        token,
+        appId,
+        appStoreVersionId: version.data?.id ?? null,
+      };
+    return {
+      status: toAppleStatus(state),
+      providerState: state,
+      token,
+      appId,
+      appStoreVersionId: version.data?.id ?? null,
+    };
   } catch (error) {
     if (error instanceof ProviderError) throw error;
     throw new ProviderError();
+  }
+}
+
+export async function getAppleStoreStatus(
+  input: StoreBuildInput,
+  config: AppleConfig,
+  fetcher: FetchLike,
+): Promise<{ status: StoreStatus; providerState: string | null }> {
+  const lookup = await getAppleStoreLookup(input, config, fetcher);
+  return {
+    status: lookup.status,
+    providerState: lookup.providerState,
+  };
+}
+
+export async function getAppleStoreReviewFacts(
+  input: StoreBuildInput,
+  config: AppleConfig,
+  fetcher: FetchLike,
+): Promise<{
+  status: StoreStatus;
+  providerState: string | null;
+  reviewSubmittedAt: string | null;
+}> {
+  const lookup = await getAppleStoreLookup(input, config, fetcher);
+  if (!lookup.appId || !lookup.appStoreVersionId)
+    return {
+      status: lookup.status,
+      providerState: lookup.providerState,
+      reviewSubmittedAt: null,
+    };
+  try {
+    const submissions = await getAppleJson<AppleCollection>(
+      fetcher,
+      `/apps/${encodeURIComponent(lookup.appId)}/reviewSubmissions?limit=200`,
+      lookup.token,
+    );
+    const reviewSubmittedAt = submissions.data
+      ?.filter(
+        (submission) =>
+          submission.relationships?.appStoreVersionForReview?.data?.id ===
+          lookup.appStoreVersionId,
+      )
+      .map((submission) => submission.attributes?.submittedDate)
+      .filter(
+        (submittedDate): submittedDate is string =>
+          typeof submittedDate === 'string' &&
+          Number.isFinite(Date.parse(submittedDate)),
+      )
+      .sort()
+      .at(-1);
+    return {
+      status: lookup.status,
+      providerState: lookup.providerState,
+      reviewSubmittedAt: reviewSubmittedAt ?? null,
+    };
+  } catch {
+    return {
+      status: lookup.status,
+      providerState: lookup.providerState,
+      reviewSubmittedAt: null,
+    };
   }
 }
 

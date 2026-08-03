@@ -1,5 +1,8 @@
 import { ProviderError } from './errors.ts';
-import type { FetchLike, StoreStatus, StoreStatusRequest } from './types.ts';
+import type { FetchLike, StoreStatus } from './types.ts';
+import type { StoreBuildIdentity } from './store-status-types.ts';
+
+type StoreBuildInput = StoreBuildIdentity & { action?: string };
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_PUBLISHER_URL =
@@ -126,7 +129,7 @@ export function toGoogleStatus(state: string): StoreStatus {
 }
 
 export async function getGooglePlayStatus(
-  input: StoreStatusRequest,
+  input: StoreBuildInput,
   config: GoogleConfig,
   fetcher: FetchLike,
 ): Promise<{ status: StoreStatus; providerState: string | null }> {

@@ -1,5 +1,9 @@
 import { assertEquals } from '@std/assert';
-import { getAppleStoreStatus, toAppleStatus } from '../_shared/apple.ts';
+import {
+  getAppleStoreReviewFacts,
+  getAppleStoreStatus,
+  toAppleStatus,
+} from '../_shared/apple.ts';
 import { ProviderError } from '../_shared/errors.ts';
 import { getGooglePlayStatus, toGoogleStatus } from '../_shared/google.ts';
 import { getStoreBuildStatus } from '../_shared/store-status.ts';
@@ -146,6 +150,77 @@ Deno.test(
       calls[1].includes('filter[preReleaseVersion.version]=1.8.0'),
       true,
     );
+  },
+);
+
+Deno.test(
+  'reads the latest Apple review submission timestamp for the exact version',
+  async () => {
+    const privateKey = await createPrivateKey({
+      name: 'ECDSA',
+      namedCurve: 'P-256',
+    });
+    const fetch = (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/apps?'))
+        return Promise.resolve(Response.json({ data: [{ id: 'app-id' }] }));
+      if (url.includes('/builds?'))
+        return Promise.resolve(
+          Response.json({
+            data: [{ id: 'build-id', attributes: { version: '43' } }],
+          }),
+        );
+      if (url.includes('/reviewSubmissions?'))
+        return Promise.resolve(
+          Response.json({
+            data: [
+              {
+                id: 'review-old',
+                attributes: { submittedDate: '2026-07-30T12:00:00.000Z' },
+                relationships: {
+                  appStoreVersionForReview: { data: { id: 'version-id' } },
+                },
+              },
+              {
+                id: 'review-latest',
+                attributes: { submittedDate: '2026-07-31T12:00:00.000Z' },
+                relationships: {
+                  appStoreVersionForReview: { data: { id: 'version-id' } },
+                },
+              },
+            ],
+          }),
+        );
+      return Promise.resolve(
+        Response.json({
+          data: {
+            id: 'version-id',
+            attributes: { appStoreState: 'IN_REVIEW' },
+          },
+        }),
+      );
+    };
+
+    const result = await getAppleStoreReviewFacts(
+      {
+        action: 'get_store_build_status',
+        platform: 'ios',
+        appVersion: '1.8.0',
+        buildNumber: '43',
+      },
+      {
+        bundleId: 'com.tetherdaily.app',
+        privateKey,
+        keyId: 'key-id',
+        issuerId: 'issuer-id',
+      },
+      fetch,
+    );
+    assertEquals(result, {
+      status: 'pending',
+      providerState: 'IN_REVIEW',
+      reviewSubmittedAt: '2026-07-31T12:00:00.000Z',
+    });
   },
 );
 

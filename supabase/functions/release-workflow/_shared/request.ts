@@ -5,6 +5,7 @@ import type {
   Platform,
   ReleaseState,
   ReleaseWorkflowRequest,
+  StoreReviewFactsRequest,
   StoreStatusRequest,
   UpdateReleaseStateRequest,
 } from './types.ts';
@@ -66,6 +67,18 @@ function parseStoreStatusPayload(
   };
 }
 
+function parseStoreReviewFactsPayload(
+  payload: Record<string, unknown>,
+): StoreReviewFactsRequest {
+  const parsed = parseStoreStatusPayload({
+    ...payload,
+    action: 'get_store_build_status',
+  });
+  if (payload.action !== 'get_store_build_review_facts')
+    throw new RequestError('Store review facts request is invalid.');
+  return { ...parsed, action: 'get_store_build_review_facts' };
+}
+
 function parseReleaseState(value: unknown): ReleaseState {
   if (!isReleaseState(value))
     throw new RequestError('Release state is invalid.');
@@ -103,6 +116,8 @@ export function parseReleaseWorkflowPayload(
   const payload = requirePayload(value);
   if (payload.action === 'get_store_build_status')
     return parseStoreStatusPayload(payload);
+  if (payload.action === 'get_store_build_review_facts')
+    return parseStoreReviewFactsPayload(payload);
   if (payload.action === 'get_release_state')
     return parseGetReleaseStatePayload(payload);
   if (payload.action === 'update_release_state')

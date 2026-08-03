@@ -29,11 +29,13 @@ function isSubmission(value: unknown): boolean {
     value as object,
     'providerSubmissionId',
   );
+  const hasSubmittedAt = Object.hasOwn(value as object, 'submittedAt');
   return (
     hasExactKeys(value, [
       'id',
       'status',
       ...(hasProviderFact ? ['providerSubmissionId', 'providerStatus'] : []),
+      ...(hasSubmittedAt ? ['submittedAt'] : []),
     ]) &&
     isNonEmptyString(value.id) &&
     ['pending', 'submitted', 'failed', 'unknown'].includes(
@@ -48,7 +50,9 @@ function isSubmission(value: unknown): boolean {
           'FINISHED',
           'ERRORED',
           'CANCELED',
-        ].includes(String(value.providerStatus))))
+        ].includes(String(value.providerStatus)))) &&
+    (!hasSubmittedAt ||
+      (value.status === 'submitted' && isTimestamp(value.submittedAt)))
   );
 }
 
