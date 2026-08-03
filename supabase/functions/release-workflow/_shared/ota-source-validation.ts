@@ -10,7 +10,7 @@ import type {
 const PLATFORMS: Platform[] = ['ios', 'android'];
 
 function getArtifacts(state: ReleaseState, native: string, platform: Platform) {
-  const artifacts: Array<{ base: StoreBase | null }> = [];
+  const artifacts: Array<{ appVersion: string; base: StoreBase | null }> = [];
   for (const release of state.releases) {
     if (release.native !== native) continue;
     if (release.releaseType === 'adopted_baseline')
@@ -19,6 +19,22 @@ function getArtifacts(state: ReleaseState, native: string, platform: Platform) {
       artifacts.push(...release.platforms[platform].attempts);
   }
   return artifacts;
+}
+
+function hasExactTargetBases(
+  state: ReleaseState,
+  native: string,
+  targetVersion: string,
+): boolean {
+  return PLATFORMS.every((platform) =>
+    getArtifacts(state, native, platform).some(
+      (artifact) =>
+        artifact.appVersion === targetVersion &&
+        artifact.base?.status === 'registered' &&
+        artifact.base.staging !== null &&
+        artifact.base.production !== null,
+    ),
+  );
 }
 
 function hasReadyBases(state: ReleaseState, native: string): boolean {
@@ -78,7 +94,8 @@ export function isValidInitialOta(
   return (
     matches.length === 1 &&
     floor !== null &&
-    ota.targetRange === `>=${floor}` &&
+    (ota.targetRange === `>=${floor}` ||
+      hasExactTargetBases(previous, ota.native, ota.targetRange)) &&
     !previous.releases.some(
       (release) =>
         release.releaseType === 'ota' &&

@@ -9,8 +9,8 @@ import type { StagingOtaFact, StagingOtaIntent } from './types.ts';
 export function isTargetRange(value: unknown): value is string {
   return (
     typeof value === 'string' &&
-    /^>=(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value) &&
-    isStrictVersion(value.slice(2))
+    /^(?:>=)?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value) &&
+    isStrictVersion(value.replace(/^>=/, ''))
   );
 }
 
