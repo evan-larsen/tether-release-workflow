@@ -1,6 +1,5 @@
 import { getPreviewUpdateKind } from './preview-update-validation.ts';
 import { getReleaseUpdateKind } from './production-update-validation.ts';
-import { isExactEmptyV1 } from './state-migration.ts';
 import { getNextNative, isReleaseState } from './state-validation.ts';
 import { isStagingLaneTarget } from './staging-lane-validation.ts';
 import {
@@ -306,14 +305,6 @@ export function validateReleaseStateUpdate(
   previous: unknown,
   next: unknown,
 ): next is ReleaseState {
-  if (isExactEmptyV1(previous))
-    return (
-      isReleaseState(next) &&
-      next.currentNative === null &&
-      next.releases.length === 0 &&
-      next.stagingLane.activeNative === null &&
-      next.stagingLane.resetTargetNative === null
-    );
   if (
     !isReleaseState(previous) ||
     !isReleaseState(next) ||

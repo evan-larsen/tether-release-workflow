@@ -63,18 +63,6 @@
       "expected": true
     },
     {
-      "id": "exact-empty-v1-migration",
-      "previous": "exact-empty-v1",
-      "next": "empty-v2",
-      "expected": true
-    },
-    {
-      "id": "nonempty-v1-migration",
-      "previous": "nonempty-v1",
-      "next": "empty-v2",
-      "expected": false
-    },
-    {
       "id": "duplicate-same-tree-preparation-reuse-no-write",
       "previous": "prepared-release",
       "next": "same-prepared-release",

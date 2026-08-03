@@ -1,5 +1,5 @@
-import { assertEquals, assertThrows } from '@std/assert';
-import { migrateEmptyV1ToV2 } from '../_shared/state-migration.ts';
+import { assertEquals } from '@std/assert';
+import { validateReleaseStateUpdate } from '../_shared/state-update-validation.ts';
 import { isReleaseState } from '../_shared/state-validation.ts';
 import type { ReleaseState } from '../_shared/types.ts';
 
@@ -122,33 +122,12 @@ Deno.test(
   },
 );
 
-Deno.test('migrates only exact empty v1', () => {
+Deno.test('rejects retired v1 release-state transitions', () => {
   assertEquals(
-    migrateEmptyV1ToV2({
-      stateVersion: 1,
-      currentNative: null,
-      releases: [],
-    }),
-    emptyV2,
-  );
-  assertThrows(
-    () =>
-      migrateEmptyV1ToV2({
-        stateVersion: 1,
-        currentNative: 'native-1',
-        releases: [],
-      }),
-    Error,
-    'Unsupported v1 release state.',
-  );
-  assertThrows(
-    () =>
-      migrateEmptyV1ToV2({
-        stateVersion: 1,
-        currentNative: null,
-        releases: [{}],
-      }),
-    Error,
-    'Unsupported v1 release state.',
+    validateReleaseStateUpdate(
+      { stateVersion: 1, currentNative: null, releases: [] },
+      emptyV2,
+    ),
+    false,
   );
 });

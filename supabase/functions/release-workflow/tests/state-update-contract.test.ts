@@ -311,9 +311,7 @@ function buildPair(id: string): [unknown, unknown] {
     (next.releases[0] as StoreReleaseRecord).productionCommit = sha('f');
     return [previous, next];
   }
-  if (id === 'exact-empty-v1-migration')
-    return [{ stateVersion: 1, currentNative: null, releases: [] }, emptyV2()];
-  return [{ stateVersion: 1, currentNative: null, releases: [{}] }, emptyV2()];
+  throw new Error(`Unknown release-state update contract case: ${id}`);
 }
 
 for (const contractCase of corpus.cases) {
